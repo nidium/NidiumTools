@@ -643,7 +643,7 @@ DOC = { 'classes': { } }
 
 def check( ):
 	"do some checks"
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object' ]
+	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer' ]
 	for typed in list( types_list ):
 		types_list.append( "[" + typed + "]" )
 	items_list = [];
