@@ -160,27 +160,29 @@ class TechnicalDoc( BasicDoc ):
 		check_type( description, "description", str )
 		self.name = name
 		self.description = description
+		self.file_name = FILE_NAME
+		self.line_nr = LINE_NR
+		class_name = self.name
 		if '.' in self.name:
 			class_name = self.name[:self.name.index( '.' )]
-			if not class_name in DOC['classes']:
-				DOC['classes'][class_name] = { 'events': {}, 'fields': {}, 'functions': {}, 'constructors': {}, 'base': {} }
-			if isinstance( self, EventDoc ):
-				DOC['classes'][class_name]['events'][self.name] = self
-			elif isinstance( self, FieldDoc ):
-				DOC['classes'][class_name]['fields'][self.name] = self
-			elif isinstance( self, FunctionDoc ):
-				DOC['classes'][class_name]['functions'][self.name] = self
-			elif isinstance( self, ConstructorDoc ):
-				DOC['classes'][class_name]['constructors'][self.name] = self
-			else:
-				#print( doc_type )
-				DOC['classes'][class_name]['base'][self.name] = self
+		#print( class_name )
+		if not class_name in DOC['classes']:
+			DOC['classes'][class_name] = { 'events': {}, 'fields': {}, 'functions': {}, 'constructors': {}, 'base': {} }
+		if isinstance( self, EventDoc ):
+			DOC['classes'][class_name]['events'][self.name] = self
+		elif isinstance( self, FieldDoc ):
+			DOC['classes'][class_name]['fields'][self.name] = self
+		elif isinstance( self, FunctionDoc ):
+			DOC['classes'][class_name]['functions'][self.name] = self
+		elif isinstance( self, ConstructorDoc ):
+			DOC['classes'][class_name]['constructors'][self.name] = self
+		else:
+			DOC['classes'][class_name]['base'][self.name] = self
 
 class DetailDoc( TechnicalDoc ):
 	"""
 	An abstract class, that is just a convinient constructor and formatter
 	"""
-	#TODO file_name, lineNumber
 	#TODO Since, deprecated
 	def __init__( self, name, description, sees = NO_Sees, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public ):
 		"""
@@ -258,8 +260,8 @@ class ClassDoc( DetailDoc ):
 		0
 		"""
 		super( self.__class__, self ).__init__( name, description, sees, examples, IS_Static, IS_Public )
-		self.inherrits = check_list_type( inherrits, "inherrits", str ) #TODO: assert that these classes do exist
-		self.extends = check_list_type( extends, "extends", str ) #TODO: assert that these classes do exist
+		self.inherrits = check_list_type( inherrits, "inherrits", str )
+		self.extends = check_list_type( extends, "extends", str )
 	def to_nidium( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		super( self.__class__, self ).to_nidium( );
@@ -541,21 +543,23 @@ class SeeDoc( BasicDoc ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "__" + self.data + "__" )
 
-def run_it( code, file_name, dry ):
+def run_it( code, file_name, line_nr, dry ):
 	"Try to lint/parse the code"
 	rok = False
+	FILE_NAME = file_name
+	LINE_NR = line_nr
 	try:
 		if dry:
-			codeop.compile_command( code, file_name, 'exec' ) 
+			codeop.compile_command( code, file_name, 'exec' )
 		else:
 			exec( code )
 		rok = True
 	except ( SyntaxError ) as error:
 		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( error.lineno) + "-" + str( error.offset ) + "\n" + error.text + "-" * error.offset + "^" )
 	except ( TypeError, OverflowError, ValueError, NameError ) as error:
-		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + "\n" + error.message )
+		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( line_nr ) + "\n" + error.message )
 	except Exception as error:
-		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + "\n" + error.message )
+		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( line_nr ) + "\n" + error.message )
 	if not rok:
 	#	print( error.args )
 		print( code )
@@ -576,10 +580,13 @@ def process_raw_content( content, file_name ):
 	"""
 	all_code = ""
 	i = 0
+	line_nr = 0;
 	state = '0'
 	start = 0
 	end = 0 
 	for token in content:
+		if token == '\n':
+			line_nr += 1
 		if state == '0':
 			if token == '/':
 				state = 's1'
@@ -607,7 +614,7 @@ def process_raw_content( content, file_name ):
 			if token == '/':
 				state = '0'
 				code = content[ start + 1 : end ]
-				run_it( code, file_name, False ) 
+				run_it( code, file_name, line_nr, False )
 				all_code += code
 			else:
 				state = 'i'
@@ -628,9 +635,83 @@ def process_dir( dir_name ):
 			file_h.close( )
 			all_code += process_raw_content( content, full_file_name )
 	#print( "Running.." )
-	run_it( all_code, os.path.join( dir_name, '*' ), True )
+	run_it( all_code, os.path.join( dir_name, '*' ), 0,  True )
 
+LINE_NR = 0
+FILE_NAME = 'unknown'
 DOC = { 'classes': { } }
+
+def check( ):
+	"do some checks"
+	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object' ]
+	for typed in list( types_list ):
+		types_list.append( "[" + typed + "]" )
+	items_list = [];
+	for class_name, class_details in DOC['classes'].items( ):
+		#print( class_name )
+		types_list.append( class_name )
+		types_list.append( "[" + class_name + "]" )
+		items_list.append( class_name )
+		for type_doc, type_details in class_details.items( ):
+			for item, item_details in type_details.items( ):
+				items_list.append( item )
+	for class_name, class_details in DOC['classes'].items( ):
+		for type_doc, type_details in class_details.items( ):
+			for item, item_details in type_details.items( ):
+				#TODO: Refractor
+				if hasattr( item, "sees" ) :
+					for sees in item_details.sees:
+						if sees.data not in items_list:
+							print( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined" )
+							#print( item_details.file_name + ":" + str( item_details.line_nr ) )
+							sys.exit( 1 )
+				if hasattr( item_details, "inherrits" ):
+					for typed in item_details.inherrits:
+						if typed not in types_list:
+							print( "The type '" + typed + "' in " + item + "'s Extends is not defined" )
+							sys.exit( 1 )
+				if hasattr( item_details, "extends" ):
+					for typed in item_details.extends:
+						if typed not in types_list:
+							print( "The type '" + typed + "' in " + item + "'s Extends is not defined" )
+							sys.exit( 1 )
+				if hasattr( item_details, "constructors" ):
+					for constructor in item_details.constructors:
+						for typed in constructor.typed:
+							if typed not in types_list:
+								print( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined" )
+								sys.exit( 1 )
+				if hasattr( item_details, "returns" ):
+					for returns in item_details.returns:
+						for typed in returns.typed:
+							if typed not in types_list:
+								print( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined" )
+								sys.exit( 1 )
+				if hasattr( item_details, "events" ):
+					for params in item_details.events:
+							for typed in params.typed:
+								if typed not in types_list:
+									print( "The type '" + typed + "' in " + item + " 's EventDoc is not defined" )
+									sys.exit( 1 )
+				if hasattr( item_details, "params" ):
+					for params in item_details.params:
+						if isinstance( params, CallbackDoc ):
+							for p in params.params:
+								for typed in p.typed:
+									if typed not in types_list:
+										print( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined" )
+										sys.exit( 1 )
+						else:
+							for typed in params.typed:
+								if typed not in types_list:
+									print( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined" )
+									sys.exit( 1 )
+				if hasattr( item_details, "fields" ):
+					for fields in item_details.fields:
+						if fields.typed not in types_list:
+							print( "The type '" + fields.typed + "' in " + item + "'s FieldDoc is not defined" )
+							sys.exit( 1 )
+
 def report( variant ):
 	"dump it in a layout"
 	if variant == 'nidium_bo':
@@ -651,8 +732,9 @@ def main( ):
 		import doctest
 		doctest.testmod( )
 	else:
-		for i in range( 1, len( sys.argv ) ): 
+		for i in range( 1, len( sys.argv ) ):
 			process_dir( sys.argv[i] )
+		check( )
 		report( 'nidium_bo' )
 
 
