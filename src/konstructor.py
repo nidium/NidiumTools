@@ -339,7 +339,7 @@ class Utils:
     def exit(reason = None):
         if reason:
             Log.echo(reason)
-        sys.exit()
+        sys.exit(1)
 
     @staticmethod
     def run(cmd, **kwargs):
@@ -630,6 +630,8 @@ class Dep:
                 for cmd in self.options["build"]:
                     if hasattr(cmd, '__call__'):
                         cmd()
+                    elif cmd.startswith("makeSingle"):
+			cmd = "make -j1"
                     elif cmd.startswith("make"):
                         cmd += " -j" + str(Platform.cpuCount)
                     elif cmd.startswith("xcodebuild"):
