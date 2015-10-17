@@ -8,8 +8,9 @@ Such as embedding javascript (spidermonkey engine), where functionality of the h
 
 This tool tries to make it easier
 """
-import sys, os
-import codeop, traceback
+import sys, os, imp
+
+DOC = { 'classes': { } }
 
 #some Global variables to enhance readability
 IS_Optional = True
@@ -51,8 +52,12 @@ def dotstr( text ):
 
 	>>> dotstr( "a." )
 	'a.'
+
+	>>> dotstr( "" )
+	''
+	
 	"""
-	if text[-1] != '.':
+	if len(text) > 0 and text[-1] != '.':
 		text += '.'
 	return text
 
@@ -160,12 +165,9 @@ class TechnicalDoc( BasicDoc ):
 		check_type( description, "description", str )
 		self.name = name
 		self.description = description
-		self.file_name = FILE_NAME
-		self.line_nr = LINE_NR
 		class_name = self.name
 		if '.' in self.name:
 			class_name = self.name[:self.name.index( '.' )]
-		#print( class_name )
 		if not class_name in DOC['classes']:
 			DOC['classes'][class_name] = { 'events': {}, 'fields': {}, 'functions': {}, 'constructors': {}, 'base': {} }
 		if isinstance( self, EventDoc ):
@@ -200,7 +202,7 @@ class DetailDoc( TechnicalDoc ):
 		check_type( is_static, "is_static", bool )
 		self.is_public = is_public
 		self.is_static = is_static
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "__" + self.name + "__\n\n" + dotstr( self.description ) + "\n" )
 		print( "__Public__: " + boolstr( self.is_public ) + "\n" )
@@ -209,19 +211,19 @@ class DetailDoc( TechnicalDoc ):
 			print( "__Sees__:" + "\n" )
 			for se in self.sees:
 				if (self.name is not se.data ):
-					se.to_nidium()
+					se.to_markdown()
 		if len( self.examples ) > 0:
 			print( "\n__Examples__:" + "\n" )
 			for ex in self.examples:
-				ex.to_nidium()
+				ex.to_markdown()
 		if hasattr( self, 'params' ) and len( self.params ) > 0:
 			print( "\n__Parameters__:" + "\n"  )
 			for pa in self.params:
-				pa.to_nidium()
+				pa.to_markdown()
 		if hasattr( self, 'returns' ) and len( self.returns ) > 0:
 			print( "\n__Returns__:" + "\n" )
 			for re in self.returns:
-				re.to_nidium()
+				re.to_markdown()
 		print( "\n" )
 
 class NamespaceDoc( DetailDoc ):
@@ -244,9 +246,9 @@ class NamespaceDoc( DetailDoc ):
 		True
 		"""
 		super( self.__class__, self ).__init__( name, description, sees, examples, True, True )
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( NamespaceDoc, self ).to_nidium( );
+		super( NamespaceDoc, self ).to_markdown( );
 
 class ClassDoc( DetailDoc ):
 	"This handles classes"
@@ -262,9 +264,9 @@ class ClassDoc( DetailDoc ):
 		super( self.__class__, self ).__init__( name, description, sees, examples, IS_Static, IS_Public )
 		self.inherrits = check_list_type( inherrits, "inherrits", str )
 		self.extends = check_list_type( extends, "extends", str )
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_nidium( );
+		super( self.__class__, self ).to_markdown( );
 		if len( self.inherrits ) > 0 :
 			print( "\n__Inherrits__:" + "\n" )
 			for ih in self.inherrits:
@@ -304,9 +306,9 @@ class FunctionDoc( DetailDoc ):
 		self.is_slow = is_slow
 		self.params = check_list_type( params, "params", ParamDoc )
 		self.returns = check_list_type( returns, "returns", ReturnDoc )
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( FunctionDoc, self ).to_nidium( );
+		super( FunctionDoc, self ).to_markdown( );
 		print( "__Constructor__:" + boolstr( self.is_constructor ) + "\n" )
 		if self.is_slow:
 			print( ">**Warning:**\n>as `" + self.name + "` is a synchronous method, it will block nidium and the UI until the reading process is complete" )
@@ -327,9 +329,9 @@ class ConstructorDoc( FunctionDoc ):
 		"""
 		super( self.__class__, self ).__init__( name, description, sees, examples, True, True, False, params, returns )
 		self.is_constructor = True
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_nidium( );
+		super( self.__class__, self ).to_markdown( );
 
 
 class FieldDoc( DetailDoc ):
@@ -373,7 +375,7 @@ class FieldDoc( DetailDoc ):
 		typed = splittype( typed )
 		check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined....
 		self.typed = typed
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description ) ) 
 
@@ -390,7 +392,7 @@ class ReturnDoc( TechnicalDoc ):
 		super( self.__class__, self ).__init__( "", description )
 		typed = splittype( typed )
 		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "'" +  "', '".join( self.typed ) + "'\t" + dotstr( self.description ) ) 
 
@@ -431,7 +433,7 @@ class ParamDoc( TechnicalDoc ):
 		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
 		self.default = default
 		self.is_optional = is_optional
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) ) 
 
@@ -452,9 +454,9 @@ class EventDoc( DetailDoc ):
 		"""
 		super( self.__class__, self ).__init__( name, description, sees, examples )
 		self.params = check_list_type( params, "params", ParamDoc )
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_nidium( )
+		super( self.__class__, self ).to_markdown( )
 
 
 class CallbackDoc( TechnicalDoc ):
@@ -485,7 +487,7 @@ class CallbackDoc( TechnicalDoc ):
 		super( self.__class__, self ).__init__( name, description )
 		self.params = check_list_type( params, "params", ParamDoc )
 		self.is_optional = IS_Obligated
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		extra = ""
 		for pa in self.params:
@@ -505,7 +507,7 @@ class ExampleDoc( BasicDoc ):
 		super( self.__class__, self ).__init__( )
 		check_list_type( example, "example", str ) 
 		self.data = example
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "```javascript\n" + self.data + "\n```" )
 
@@ -539,115 +541,19 @@ class SeeDoc( BasicDoc ):
 		super( self.__class__, self ).__init__( )
 		check_list_type( see, "see", str ) #TODO: check is if see' is defined
 		self.data = see
-	def to_nidium( self ):
+	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "__" + self.data + "__" )
 
-def run_it( code, file_name, line_nr, dry ):
-	"Try to lint/parse the code"
-	rok = False
-	FILE_NAME = file_name
-	LINE_NR = line_nr
-	try:
-		if dry:
-			codeop.compile_command( code, file_name, 'exec' )
-		else:
-			exec( code )
-		rok = True
-	except ( SyntaxError ) as error:
-		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( error.lineno) + "-" + str( error.offset ) + "\n" + error.text + "-" * error.offset + "^" )
-	except ( TypeError, OverflowError, ValueError, NameError ) as error:
-		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( line_nr ) + "\n" + error.message )
-	except Exception as error:
-		print( "An " + type( error ).__name__ + " occurred in file: " + file_name + ":" + str( line_nr ) + "\n" + error.message )
-	if not rok:
-	#	print( error.args )
-		print( code )
-		print traceback.format_exc( )
-		sys.exit( 1 )
-
-def process_raw_content( content, file_name ):
-	"""
-	Go through the characters and look for /*$	$*/ blocks
-	each block is python code that should be run in the current scope
-	
-	>>> process_raw_content( "/*$$*/", "dummy" )
-	''
-	
-	>>> process_raw_content( "/*$print( 43 - 1 )$*/", "dummy" )
-	42
-	'print( 43 - 1 )'
-	"""
-	all_code = ""
-	i = 0
-	line_nr = 0;
-	state = '0'
-	start = 0
-	end = 0 
-	for token in content:
-		if token == '\n':
-			line_nr += 1
-		if state == '0':
-			if token == '/':
-				state = 's1'
-		elif state == 's1':
-			if token == '*':
-				state = 's2'
-			else:
-				state = '0'
-		elif state == 's2':
-			if token == '$':
-				state = 'i'
-				start = i
-			else:
-				state = '0'
-		elif state == 'i':
-			if token == '$':
-				end = i
-				state = 'e1'
-		elif state == 'e1':
-			if token == '*':
-				state = 'e2'
-			else:
-				state = 'i'
-		elif state == 'e2':
-			if token == '/':
-				state = '0'
-				code = content[ start + 1 : end ]
-				run_it( code, file_name, line_nr, False )
-				all_code += code
-			else:
-				state = 'i'
-		i += 1
-	return all_code
-
-def process_dir( dir_name ):
-	"""
-	Go through all the files in the dirName process the raw sourcecode
-	"""
-	all_code = ''
-	for file_name in os.listdir( dir_name ):
-		full_file_name = os.path.join( dir_name, file_name )
-		if not os.path.isdir( full_file_name ):
-			#print( "Parsing " + file_name )
-			file_h = open( full_file_name, 'r' )
-			content = file_h.read( )
-			file_h.close( )
-			all_code += process_raw_content( content, full_file_name )
-	#print( "Running.." )
-	run_it( all_code, os.path.join( dir_name, '*' ), 0,  True )
-
-LINE_NR = 0
-FILE_NAME = 'unknown'
-DOC = { 'classes': { } }
-
-def check( ):
+def check( docs ):
 	"do some checks"
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer' ]
+	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 
+		'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
+				]
 	for typed in list( types_list ):
 		types_list.append( "[" + typed + "]" )
 	items_list = [];
-	for class_name, class_details in DOC['classes'].items( ):
+	for class_name, class_details in docs['classes'].items( ):
 		#print( class_name )
 		types_list.append( class_name )
 		types_list.append( "[" + class_name + "]" )
@@ -655,15 +561,15 @@ def check( ):
 		for type_doc, type_details in class_details.items( ):
 			for item, item_details in type_details.items( ):
 				items_list.append( item )
-	for class_name, class_details in DOC['classes'].items( ):
+	for class_name, class_details in docs['classes'].items( ):
 		for type_doc, type_details in class_details.items( ):
 			for item, item_details in type_details.items( ):
+				print(class_name + "." + type_doc + ":" + item )
 				#TODO: Refractor
 				if hasattr( item, "sees" ) :
 					for sees in item_details.sees:
 						if sees.data not in items_list:
 							print( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined" )
-							#print( item_details.file_name + ":" + str( item_details.line_nr ) )
 							sys.exit( 1 )
 				if hasattr( item_details, "inherrits" ):
 					for typed in item_details.inherrits:
@@ -695,7 +601,7 @@ def check( ):
 									sys.exit( 1 )
 				if hasattr( item_details, "params" ):
 					for params in item_details.params:
-						if isinstance( params, CallbackDoc ):
+						if type( params).__name__ == 'CallbackDoc':
 							for p in params.params:
 								for typed in p.typed:
 									if typed not in types_list:
@@ -712,16 +618,30 @@ def check( ):
 							print( "The type '" + fields.typed + "' in " + item + "'s FieldDoc is not defined" )
 							sys.exit( 1 )
 
-def report( variant ):
+def report( variant , docs ):
 	"dump it in a layout"
 	if variant == 'nidium_bo':
-		for class_name, class_details in DOC['classes'].items( ):
+		for class_name, class_details in docs['classes'].items( ):
 			print( "\n\n\n\n#" + class_name + "\n" )
 			for type_doc, type_details in class_details.items( ):
 				print( "\n\n\n## " + type_doc + "\n" )
 				for item, item_details in type_details.items( ):
 					print( "\n\n### " + item + "\n" )
-					item_details.to_nidium()
+					item_details.to_markdown()
+
+def process_dir( dir_name ):
+	"""
+	Go through all the files in the dirName process the raw sourcecode
+	"""
+	all_code = ''
+	for file_name in os.listdir( dir_name ):
+		full_file_name = os.path.join( dir_name, file_name )
+		if not os.path.isdir( full_file_name ):
+			print("Reading " + full_file_name )
+			if os.path.splitext( full_file_name )[-1] == '.py':
+				py_mod = imp.load_source('DOCC', full_file_name );
+		else:
+			process_dir( full_file_name )
 
 def main( ):
 	"""The main routine"""
@@ -734,8 +654,9 @@ def main( ):
 	else:
 		for i in range( 1, len( sys.argv ) ):
 			process_dir( sys.argv[i] )
-		check( )
-		report( 'nidium_bo' )
+		docs = sys.modules['DOCC'].DOC
+		check( docs )
+		report( 'nidium_bo', docs )
 
 
 if __name__ == '__main__':
