@@ -8,7 +8,7 @@ Such as embedding javascript (spidermonkey engine), where functionality of the h
 
 This tool tries to make it easier
 """
-import sys, os, imp
+import sys, os, imp, json
 
 DOC = { 'classes': { } }
 
@@ -57,7 +57,7 @@ def dotstr( text ):
 	''
 	
 	"""
-	if len(text) > 0 and text[-1] != '.':
+	if len( text ) > 0 and text[-1] != '.':
 		text += '.'
 	return text
 
@@ -73,7 +73,7 @@ def splittype( typed ):
 	"""
 	if typed is None:
 		return typed
-	elif isinstance( typed, str ):
+	elif type( typed ).__name__ == 'str':
 		if '|' in typed:
 			typed = typed.split( '|' )
 		else:
@@ -92,15 +92,15 @@ def check_type( var, var_name, base_type ):
 	rok = True
 	if not isinstance( var, base_type ):
 		rok = False
-		if base_type == ParamDoc:
-			if isinstance( var, CallbackDoc ):
+		if base_type.__name__ == 'ParamDoc':
+			if type( var ).__name__ == 'CallbackDoc':
 				rok = True
 	if not rok:
 		raise TypeError( var_name + ": " + base_type.__name__ + " expected, got: " + type( var ).__name__ )
 
 def check_list_type( list_name, var_name, base_class_type ):
 	"""
-	Forces the variable into a (empty) list. If it was a list, all items must be of the correct type.
+	Forces the variable into a ( empty ) list. If it was a list, all items must be of the correct type.
 
 	>>> a = [1, 2 ]
 	>>> b = check_list_type( a, "i", int )
@@ -146,6 +146,9 @@ class BasicDoc( object ):
 
 		"""
 		pass
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		return {}
 
 class TechnicalDoc( BasicDoc ):
 	"""
@@ -168,24 +171,34 @@ class TechnicalDoc( BasicDoc ):
 		class_name = self.name
 		if '.' in self.name:
 			class_name = self.name[:self.name.index( '.' )]
+		key = ''
+		typed = type( self ).__name__
+		if typed == 'EventDoc':
+			key = 'events'
+		elif typed == 'FieldDoc':
+			key = 'fields'
+		elif typed == 'FunctionDoc':
+			key = 'functions'
+		elif typed == 'ConstructorDoc':
+			key = 'constructors'
+		elif typed == 'NamespaceDoc' or typed == 'ClassDoc':
+			key = 'base'
+		elif typed == 'ReturnDoc' or typed == 'ParamDoc' or typed == 'CallbackDoc':
+			pass
+		elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
+			pass
+		else:
+			raise ValueError( 'A very specific bad thing happened' )	
 		if not class_name in DOC['classes']:
 			DOC['classes'][class_name] = { 'events': {}, 'fields': {}, 'functions': {}, 'constructors': {}, 'base': {} }
-		if isinstance( self, EventDoc ):
-			DOC['classes'][class_name]['events'][self.name] = self
-		elif isinstance( self, FieldDoc ):
-			DOC['classes'][class_name]['fields'][self.name] = self
-		elif isinstance( self, FunctionDoc ):
-			DOC['classes'][class_name]['functions'][self.name] = self
-		elif isinstance( self, ConstructorDoc ):
-			DOC['classes'][class_name]['constructors'][self.name] = self
-		else:
-			DOC['classes'][class_name]['base'][self.name] = self
+		if key != '':
+			DOC['classes'][class_name][key][self.name] = self
 
 class DetailDoc( TechnicalDoc ):
 	"""
 	An abstract class, that is just a convinient constructor and formatter
 	"""
-	#TODO Since, deprecated
+	#@TODO: Since, deprecated
 	def __init__( self, name, description, sees = NO_Sees, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public ):
 		"""
 		>>> a = DetailDoc( "Detail", "Devil is in the detail", None, None, True, False )
@@ -206,25 +219,34 @@ class DetailDoc( TechnicalDoc ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		print( "__" + self.name + "__\n\n" + dotstr( self.description ) + "\n" )
 		print( "__Public__: " + boolstr( self.is_public ) + "\n" )
-		print( "__Static__: " + boolstr( self.is_static ) + "\n")
+		print( "__Static__: " + boolstr( self.is_static ) + "\n" )
 		if len( self.sees ) > 0:
 			print( "__Sees__:" + "\n" )
-			for se in self.sees:
-				if (self.name is not se.data ):
-					se.to_markdown()
+			for see in self.sees:
+				if (self.name is not see.data ):
+					see.to_markdown( )
 		if len( self.examples ) > 0:
 			print( "\n__Examples__:" + "\n" )
-			for ex in self.examples:
-				ex.to_markdown()
-		if hasattr( self, 'params' ) and len( self.params ) > 0:
-			print( "\n__Parameters__:" + "\n"  )
-			for pa in self.params:
-				pa.to_markdown()
-		if hasattr( self, 'returns' ) and len( self.returns ) > 0:
-			print( "\n__Returns__:" + "\n" )
-			for re in self.returns:
-				re.to_markdown()
+			for example in self.examples:
+				example.to_markdown( )
 		print( "\n" )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data =  super( DetailDoc, self ).to_dict( )
+		data['name'] = self.name
+		data['description'] = self.description
+		data['is_public'] = self.is_public
+		data['is_static'] = self.is_static
+		data['sees'] = []
+		data['examples'] = []
+		if len( self.sees ) > 0:
+			for see in self.sees:
+				if ( self.name is not see.data ):
+					data['sees'].append( see.to_dict( ) )
+		if len( self.examples ) > 0:
+			for example in self.examples:
+				data['examples'].append( example.to_dict( ) )
+		return data
 
 class NamespaceDoc( DetailDoc ):
 	"""
@@ -248,7 +270,7 @@ class NamespaceDoc( DetailDoc ):
 		super( self.__class__, self ).__init__( name, description, sees, examples, True, True )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( NamespaceDoc, self ).to_markdown( );
+		super( NamespaceDoc, self ).to_markdown( )
 
 class ClassDoc( DetailDoc ):
 	"This handles classes"
@@ -266,15 +288,15 @@ class ClassDoc( DetailDoc ):
 		self.extends = check_list_type( extends, "extends", str )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_markdown( );
+		super( self.__class__, self ).to_markdown( )
 		if len( self.inherrits ) > 0 :
 			print( "\n__Inherrits__:" + "\n" )
-			for ih in self.inherrits:
-				print( ih )
+			for inherrit in self.inherrits:
+				print( inherrit )
 		if len( self.extends ) > 0 :
 			print( "\n__Extends__:" + "\n" )
-			for ex in self.extends:
-				print( ex )
+			for examp in self.extends:
+				print( examp )
 
 class FunctionDoc( DetailDoc ):
 	"""
@@ -282,7 +304,7 @@ class FunctionDoc( DetailDoc ):
 	"""
 	def __init__( self, name, description, sees = None, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public, is_slow = IS_Fast, params = NO_Params, returns = NO_Returns ):
 		"""
-		>>> a = FunctionDoc( 'console.log', 'Log shit', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, ParamDoc( 'text', 'The Text', 'string', "") )
+		>>> a = FunctionDoc( 'console.log', 'Log shit', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, ParamDoc( 'text', 'The Text', 'string', "" ) )
 		>>> a.params[0].default
 		''
 
@@ -308,10 +330,30 @@ class FunctionDoc( DetailDoc ):
 		self.returns = check_list_type( returns, "returns", ReturnDoc )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( FunctionDoc, self ).to_markdown( );
+		super( FunctionDoc, self ).to_markdown( )
+		if ( self.params ) > 0:
+			print( "\n__Parameters__:" + "\n"  )
+			for param in self.params:
+				param.to_markdown( )
 		print( "__Constructor__:" + boolstr( self.is_constructor ) + "\n" )
 		if self.is_slow:
 			print( ">**Warning:**\n>as `" + self.name + "` is a synchronous method, it will block nidium and the UI until the reading process is complete" )
+		if len( self.returns ) > 0:
+			print( "\n__Returns__:" + "\n" )
+			for ret in self.returns:
+				ret.to_markdown( )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( FunctionDoc, self ).to_dict( )
+		data['is_constructor'] = self.is_constructor
+		data['is_slow'] = self.is_slow
+		data['params'] = []
+		for param in self.params:
+			data['params'].append( param.to_dict( ) )
+		data['returns'] = []
+		for ret in self.returns:
+			data['returns'].append( ret.to_dict( ) )
+		return( data )
 
 class ConstructorDoc( FunctionDoc ):
 	"""
@@ -330,9 +372,11 @@ class ConstructorDoc( FunctionDoc ):
 		super( self.__class__, self ).__init__( name, description, sees, examples, True, True, False, params, returns )
 		self.is_constructor = True
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_markdown( );
-
+		"""output prepared for in markdown format."""
+		super( self.__class__, self ).to_markdown( )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		return super( self.__class__, self ).to_dict( )
 
 class FieldDoc( DetailDoc ):
 	"""
@@ -363,7 +407,7 @@ class FieldDoc( DetailDoc ):
 		check_type( is_readonly, "is_readonly", bool )
 		self.is_readonly = is_readonly
 		if default is not None:
-			if isinstance(  default, int ) or isinstance(  default, str ):
+			if type( default ).__name__ == 'int' or type( default ).__name__ == 'str':
 				self.default = default
 			else:
 				check_type( default, "default", str ) #or int
@@ -376,8 +420,14 @@ class FieldDoc( DetailDoc ):
 		check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined....
 		self.typed = typed
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared in markdown format."""
 		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description ) ) 
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = {}
+		data['typed'] = self.typed
+		data['is_readonly'] = self.is_readonly
+		return( data )
 
 class ReturnDoc( TechnicalDoc ):
 	"""
@@ -393,8 +443,13 @@ class ReturnDoc( TechnicalDoc ):
 		typed = splittype( typed )
 		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared in markdown format."""
 		print( "'" +  "', '".join( self.typed ) + "'\t" + dotstr( self.description ) ) 
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		data['typed'] = self.typed
+		return( data )
 
 class ParamDoc( TechnicalDoc ):
 	"""
@@ -428,16 +483,23 @@ class ParamDoc( TechnicalDoc ):
 		>>> a.is_optional
 		True
 		"""
-		super( self.__class__, self ).__init__( name, description )
+		super( ParamDoc, self ).__init__( name, description )
 		typed = splittype( typed )
 		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
 		self.default = default
 		self.is_optional = is_optional
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared in markdown format."""
 		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) ) 
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( ParamDoc, self ).to_dict( )
+		data['typed'] = self.typed
+		data['default'] = self.default
+		data['is_optional'] = self.is_optional
+		return( data )
 
-class EventDoc( DetailDoc ):
+class EventDoc( FunctionDoc ):
 	"""
 	This handles events.
 	Events are basically callbacks/functions that can be triggered everywhere in the class code
@@ -455,11 +517,15 @@ class EventDoc( DetailDoc ):
 		super( self.__class__, self ).__init__( name, description, sees, examples )
 		self.params = check_list_type( params, "params", ParamDoc )
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared in markdown format."""
 		super( self.__class__, self ).to_markdown( )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		return( data )
 
 
-class CallbackDoc( TechnicalDoc ):
+class CallbackDoc( ParamDoc ):
 	"""
 	This handles parameters that are callback-functions/methods. 
 	These differ because a callback function has parameters that need to be documented as well
@@ -484,15 +550,22 @@ class CallbackDoc( TechnicalDoc ):
 		>>> type( a.params )
 		<type 'list'>
 		"""
-		super( self.__class__, self ).__init__( name, description )
+		super( CallbackDoc, self ).__init__( name, description, 'function', NO_Default, IS_Obligated )
 		self.params = check_list_type( params, "params", ParamDoc )
-		self.is_optional = IS_Obligated
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared in markdown format."""
 		extra = ""
-		for pa in self.params:
-			extra += pa.name + "\t'" + "', '".join( pa.typed ) + "'\t" + boolstr( pa.is_optional ) + "\t" + dotstr( pa.description ) + "\n"
+		for param in self.params:
+			extra += param.name + "\t'" + "', '".join( param.typed ) + "'\t" + boolstr( param.is_optional ) + "\t" + dotstr( param.description ) + "\n"
 		print( self.name + "\t" + "'callback'" + "\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) + extra )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		data['is_optional'] = self.is_optional
+		data['params'] = []
+		for i in self.params:
+			data['params'].append( i.to_dict( ) )
+		return( data )
 
 class ExampleDoc( BasicDoc ):
 	"""
@@ -508,17 +581,22 @@ class ExampleDoc( BasicDoc ):
 		check_list_type( example, "example", str ) 
 		self.data = example
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared for in markdown format."""
 		print( "```javascript\n" + self.data + "\n```" )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		data['data'] = self.data
+		return( data )
 
 def SeesDocs( list_of_sees ):
 	"""
 	Builds a list of Seedoc's based on a string with '|'
-	>>> a = SeesDocs( "dummy1" );
+	>>> a = SeesDocs( "dummy1" )
 	>>> a[0].data
 	'dummy1'
 	
-	>>> a = SeesDocs( "dummy1|dummy2" );
+	>>> a = SeesDocs( "dummy1|dummy2" )
 	>>> a[1].data
 	'dummy2'
 	""" 
@@ -539,22 +617,27 @@ class SeeDoc( BasicDoc ):
 		'dummy'
 		"""
 		super( self.__class__, self ).__init__( )
-		check_list_type( see, "see", str ) #TODO: check is if see' is defined
+		check_list_type( see, "see", str )
 		self.data = see
 	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
+		"""output prepared for in markdown format."""
 		print( "__" + self.data + "__" )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		data['data'] = self.data
+		return( data )
 
 def check( docs ):
 	"do some checks"
 	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 
+		'object',
 		'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
 				]
 	for typed in list( types_list ):
 		types_list.append( "[" + typed + "]" )
-	items_list = [];
+	items_list = []
 	for class_name, class_details in docs['classes'].items( ):
-		#print( class_name )
 		types_list.append( class_name )
 		types_list.append( "[" + class_name + "]" )
 		items_list.append( class_name )
@@ -564,7 +647,6 @@ def check( docs ):
 	for class_name, class_details in docs['classes'].items( ):
 		for type_doc, type_details in class_details.items( ):
 			for item, item_details in type_details.items( ):
-				print(class_name + "." + type_doc + ":" + item )
 				#TODO: Refractor
 				if hasattr( item, "sees" ) :
 					for sees in item_details.sees:
@@ -601,9 +683,9 @@ def check( docs ):
 									sys.exit( 1 )
 				if hasattr( item_details, "params" ):
 					for params in item_details.params:
-						if type( params).__name__ == 'CallbackDoc':
-							for p in params.params:
-								for typed in p.typed:
+						if type( params ).__name__ == 'CallbackDoc':
+							for param in params.params:
+								for typed in param.typed:
 									if typed not in types_list:
 										print( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined" )
 										sys.exit( 1 )
@@ -620,43 +702,59 @@ def check( docs ):
 
 def report( variant , docs ):
 	"dump it in a layout"
-	if variant == 'nidium_bo':
+	if variant == 'markdown':
 		for class_name, class_details in docs['classes'].items( ):
 			print( "\n\n\n\n#" + class_name + "\n" )
 			for type_doc, type_details in class_details.items( ):
 				print( "\n\n\n## " + type_doc + "\n" )
 				for item, item_details in type_details.items( ):
 					print( "\n\n### " + item + "\n" )
-					item_details.to_markdown()
+					item_details.to_markdown( )
+	elif variant == 'json':
+		data = {}
+		for class_name, class_details in docs['classes'].items( ):
+			data[class_name] = {}
+			for type_doc, type_details in class_details.items( ):
+				data[class_name][type_doc] = {}
+				for item, item_details in type_details.items( ):
+					data[class_name][type_doc][item] = item_details.to_dict( )
+		print( json.dumps( data ) )
 
-def process_dir( dir_name ):
+def process_dir_recurse( dir_name ):
 	"""
 	Go through all the files in the dirName process the raw sourcecode
 	"""
-	all_code = ''
 	for file_name in os.listdir( dir_name ):
 		full_file_name = os.path.join( dir_name, file_name )
 		if not os.path.isdir( full_file_name ):
-			print("Reading " + full_file_name )
+			#print( "Reading " + full_file_name )
 			if os.path.splitext( full_file_name )[-1] == '.py':
-				py_mod = imp.load_source('DOCC', full_file_name );
+				imp.load_source( 'DOCC', full_file_name )
 		else:
-			process_dir( full_file_name )
+			process_dir_recurse( full_file_name )
 
+
+def usage( ):
+	"""Usage."""
+	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	doctest|markdown|website." )
+	sys.exit( 1 )
+	
 def main( ):
 	"""The main routine"""
 	if len( sys.argv ) == 1:
-		print( "Usage: "+ sys.argv[0] + " DIR [DIR2, ]\n\tPlease note: if DIR = 'doctest' then this module will run the doctests." )
-		sys.exit( )
-	elif sys.argv[1] == 'doctest':
+		usage( )
+	cmd = sys.argv[1]
+	if cmd == 'doctest':
 		import doctest
 		doctest.testmod( )
-	else:
-		for i in range( 1, len( sys.argv ) ):
-			process_dir( sys.argv[i] )
+	elif len( sys.argv ) > 2 and cmd == 'markdown' or cmd == 'json':
+		for i in range( 2, len( sys.argv ) ):
+			process_dir_recurse( sys.argv[i] )
 		docs = sys.modules['DOCC'].DOC
 		check( docs )
-		report( 'nidium_bo', docs )
+		report( cmd, docs )
+	else:
+		usage( )
 
 
 if __name__ == '__main__':
