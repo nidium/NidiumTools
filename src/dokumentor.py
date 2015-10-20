@@ -173,26 +173,35 @@ class TechnicalDoc( BasicDoc ):
 			class_name = self.name[:self.name.index( '.' )]
 		key = ''
 		typed = type( self ).__name__
+		add = False
+		if not class_name in DOC['classes']:
+			add = True
 		if typed == 'EventDoc':
 			key = 'events'
 		elif typed == 'FieldDoc':
-			key = 'fields'
+			key = 'properties'
 		elif typed == 'FunctionDoc':
-			key = 'functions'
+			key = 'methods'
 		elif typed == 'ConstructorDoc':
 			key = 'constructors'
 		elif typed == 'NamespaceDoc' or typed == 'ClassDoc':
 			key = 'base'
 		elif typed == 'ReturnDoc' or typed == 'ParamDoc' or typed == 'CallbackDoc':
-			pass
+			add = False
 		elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
-			pass
+			add = False
 		else:
 			raise ValueError( 'A very specific bad thing happened' )	
-		if not class_name in DOC['classes']:
-			DOC['classes'][class_name] = { 'events': {}, 'fields': {}, 'functions': {}, 'constructors': {}, 'base': {} }
+		if add:
+			DOC['classes'][class_name] = { 'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {} }
 		if key != '':
 			DOC['classes'][class_name][key][self.name] = self
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( TechnicalDoc, self ).to_dict( )
+		data['name'] = self.name
+		data['description'] = self.description
+		return data
 
 class DetailDoc( TechnicalDoc ):
 	"""
@@ -233,8 +242,6 @@ class DetailDoc( TechnicalDoc ):
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data =  super( DetailDoc, self ).to_dict( )
-		data['name'] = self.name
-		data['description'] = self.description
 		data['is_public'] = self.is_public
 		data['is_static'] = self.is_static
 		data['sees'] = []
@@ -271,6 +278,10 @@ class NamespaceDoc( DetailDoc ):
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
 		super( NamespaceDoc, self ).to_markdown( )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		return data
 
 class ClassDoc( DetailDoc ):
 	"This handles classes"
@@ -297,6 +308,16 @@ class ClassDoc( DetailDoc ):
 			print( "\n__Extends__:" + "\n" )
 			for examp in self.extends:
 				print( examp )
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		data = super( self.__class__, self ).to_dict( )
+		data['inherrits'] = []
+		for inh in self.inherrits:
+			data['inherrits'].append( inh )
+		data['extends'] = []
+		for ext in self.extends:
+			data['extends'].append( ext )
+		return data
 
 class FunctionDoc( DetailDoc ):
 	"""
@@ -630,9 +651,9 @@ class SeeDoc( BasicDoc ):
 
 def check( docs ):
 	"do some checks"
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 
-		'object',
-		'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
+	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 'Array', 
+		'object', '?',
+		'SocketClient', 'Canvas', 'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
 				]
 	for typed in list( types_list ):
 		types_list.append( "[" + typed + "]" )
@@ -651,35 +672,35 @@ def check( docs ):
 				if hasattr( item, "sees" ) :
 					for sees in item_details.sees:
 						if sees.data not in items_list:
-							print( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined" )
+							sys.stderr.write( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined.\n" )
 							sys.exit( 1 )
 				if hasattr( item_details, "inherrits" ):
 					for typed in item_details.inherrits:
 						if typed not in types_list:
-							print( "The type '" + typed + "' in " + item + "'s Extends is not defined" )
+							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
 							sys.exit( 1 )
 				if hasattr( item_details, "extends" ):
 					for typed in item_details.extends:
 						if typed not in types_list:
-							print( "The type '" + typed + "' in " + item + "'s Extends is not defined" )
+							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
 							sys.exit( 1 )
 				if hasattr( item_details, "constructors" ):
 					for constructor in item_details.constructors:
 						for typed in constructor.typed:
 							if typed not in types_list:
-								print( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined" )
+								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
 								sys.exit( 1 )
 				if hasattr( item_details, "returns" ):
 					for returns in item_details.returns:
 						for typed in returns.typed:
 							if typed not in types_list:
-								print( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined" )
+								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
 								sys.exit( 1 )
 				if hasattr( item_details, "events" ):
 					for params in item_details.events:
 							for typed in params.typed:
 								if typed not in types_list:
-									print( "The type '" + typed + "' in " + item + " 's EventDoc is not defined" )
+									sys.stderr.write( "The type '" + typed + "' in " + item + " 's EventDoc is not defined.\n" )
 									sys.exit( 1 )
 				if hasattr( item_details, "params" ):
 					for params in item_details.params:
@@ -687,17 +708,17 @@ def check( docs ):
 							for param in params.params:
 								for typed in param.typed:
 									if typed not in types_list:
-										print( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined" )
+										sys.stderr.write( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined.\n" )
 										sys.exit( 1 )
 						else:
 							for typed in params.typed:
 								if typed not in types_list:
-									print( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined" )
+									sys.stderr.write( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined.\n" )
 									sys.exit( 1 )
-				if hasattr( item_details, "fields" ):
-					for fields in item_details.fields:
-						if fields.typed not in types_list:
-							print( "The type '" + fields.typed + "' in " + item + "'s FieldDoc is not defined" )
+				if hasattr( item_details, "properties" ):
+					for property in item_details.properties:
+						if property.typed not in types_list:
+							sys.stderr.write( "The type '" + property.typed + "' in " + item + "'s FieldDoc is not defined.\n" )
 							sys.exit( 1 )
 
 def report( variant , docs ):
@@ -750,6 +771,9 @@ def main( ):
 	elif len( sys.argv ) > 2 and cmd == 'markdown' or cmd == 'json':
 		for i in range( 2, len( sys.argv ) ):
 			process_dir_recurse( sys.argv[i] )
+		if not sys.modules.has_key( 'DOCC' ):
+			sys.stderr.write( "No documentation found.\n" )
+			sys.exit( 1 )
 		docs = sys.modules['DOCC'].DOC
 		check( docs )
 		report( cmd, docs )
