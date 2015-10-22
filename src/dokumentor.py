@@ -193,7 +193,7 @@ class TechnicalDoc( BasicDoc ):
 		else:
 			raise ValueError( 'A very specific bad thing happened' )	
 		if add:
-			DOC['classes'][class_name] = { 'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {} }
+			DOC['classes'][class_name] = { 'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {} } }
 		if key != '':
 			DOC['classes'][class_name][key][self.name] = self
 	def to_dict( self ):
@@ -662,11 +662,15 @@ def check( docs ):
 		types_list.append( class_name )
 		types_list.append( "[" + class_name + "]" )
 		items_list.append( class_name )
-		for type_doc, type_details in class_details.items( ):
+		for type_details in class_details.values( ):
 			for item, item_details in type_details.items( ):
 				items_list.append( item )
 	for class_name, class_details in docs['classes'].items( ):
-		for type_doc, type_details in class_details.items( ):
+		for chapter, type_details in class_details.items( ):
+			if chapter == 'base':
+				if type(type_details[class_name]) == type( dict() ):
+					sys.stderr.write( "Class/Namespace '" + class_name + "' is not defined.\n" )
+					sys.exit( 1 )
 			for item, item_details in type_details.items( ):
 				#TODO: Refractor
 				if hasattr( item, "sees" ) :
@@ -716,9 +720,9 @@ def check( docs ):
 									sys.stderr.write( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined.\n" )
 									sys.exit( 1 )
 				if hasattr( item_details, "properties" ):
-					for property in item_details.properties:
-						if property.typed not in types_list:
-							sys.stderr.write( "The type '" + property.typed + "' in " + item + "'s FieldDoc is not defined.\n" )
+					for prop in item_details.properties:
+						if prop.typed not in types_list:
+							sys.stderr.write( "The type '" + prop.typed + "' in " + item + "'s FieldDoc is not defined.\n" )
 							sys.exit( 1 )
 
 def report( variant , docs ):
@@ -780,6 +784,15 @@ def main( ):
 	else:
 		usage( )
 
+
+NamespaceDoc( 'global', 'Javascript Global namespace.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Strings', 'Javascript strings type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'ArrayBuffer', 'Javascript ArrayBuffer type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Object', 'Javascript Object type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Uint8Array', 'Javascript Uint8Array type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Number', 'Javascript Number type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Array', 'Javascript Array type.', NO_Sees, NO_Examples )
+NamespaceDoc( 'Math', 'Javascript Math namespace.', NO_Sees, NO_Examples )
 
 if __name__ == '__main__':
 	main( )
