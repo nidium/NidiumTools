@@ -633,9 +633,11 @@ class Dep:
                     elif cmd.startswith("makeSingle"):
 			cmd = "make -j1"
                     elif cmd.startswith("make"):
-                        cmd += " -j" + str(Platform.cpuCount)
+                        if "-j" not in cmd:
+                            cmd += " -j" + str(Platform.cpuCount)
                     elif cmd.startswith("xcodebuild"):
-                        cmd += " -jobs " + str(Platform.cpuCount)
+                        if "-jobs" not in cmd:
+                            cmd += " -jobs " + str(Platform.cpuCount)
                     Utils.run(cmd)
 
             self.symlinkOutput()
