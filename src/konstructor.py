@@ -357,16 +357,16 @@ class Utils:
         if "failExit" in kwargs:
             failExit = kwargs["failExit"]
 
-        child = None
-
-        if Variables.get("verbose", False):
-            child = subprocess.Popen(cmd, shell=True, stdin=stdin)
-        else:
-            LOG_FILE.flush()
-            child = subprocess.Popen(cmd, shell=True, stdin=stdin, stdout=LOG_FILE, stderr=LOG_FILE)
+        child = subprocess.Popen(cmd, shell=True, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         output, error = child.communicate()
         code = child.returncode
+
+        if Variables.get("verbose", False):
+            print("Command result : \n    Code %d\n    stdout : %s\n    stderr: %s" % (code, output, error))
+        else:
+            LOG_FILE.write(output)
+            LOG_FILE.flush()
 
         if code != 0:
             if failExit:
