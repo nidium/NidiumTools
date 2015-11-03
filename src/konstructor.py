@@ -348,7 +348,7 @@ class Utils:
         Log.echo("Executing " + cmd)
 
         displaySpinner = True
-        stdin = None 
+        stdin = stdout = stderr = None 
         failExit = True
 
         if "stdin" in kwargs:
@@ -357,13 +357,16 @@ class Utils:
         if "failExit" in kwargs:
             failExit = kwargs["failExit"]
 
-        child = subprocess.Popen(cmd, shell=True, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if "returnOutput" in kwargs:
+            stdout = stderr = subprocess.PIPE
+
+        child = subprocess.Popen(cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr)
 
         output, error = child.communicate()
         code = child.returncode
 
         if Variables.get("verbose", False):
-            print("Command result : \n    Code %d\n    stdout : %s\n    stderr: %s" % (code, output, error))
+            Log.info("Command result : \n    Code %d\n    stdout : %s\n    stderr: %s" % (code, output, error))
         else:
             LOG_FILE.write(output)
             LOG_FILE.flush()
@@ -631,7 +634,7 @@ class Dep:
                     if hasattr(cmd, '__call__'):
                         cmd()
                     elif cmd.startswith("makeSingle"):
-			cmd = "make -j1"
+                        cmd = "make -j1"
                     elif cmd.startswith("make"):
                         if "-j" not in cmd:
                             cmd += " -j" + str(Platform.cpuCount)
