@@ -445,7 +445,7 @@ class FieldDoc( DetailDoc ):
 		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description ) ) 
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
-		data = {}
+		data = super( self.__class__, self ).to_dict( )
 		data['typed'] = self.typed
 		data['is_readonly'] = self.is_readonly
 		return( data )
@@ -600,7 +600,7 @@ class ExampleDoc( BasicDoc ):
 		"""
 		super( self.__class__, self ).__init__( )
 		check_list_type( example, "example", str ) 
-		self.data = example
+		self.data = example.strip()
 	def to_markdown( self ):
 		"""output prepared for in markdown format."""
 		print( "```javascript\n" + self.data + "\n```" )
@@ -739,10 +739,15 @@ def report( variant , docs ):
 		data = {}
 		for class_name, class_details in docs['classes'].items( ):
 			data[class_name] = {}
+			count = 0
 			for type_doc, type_details in class_details.items( ):
 				data[class_name][type_doc] = {}
 				for item, item_details in type_details.items( ):
 					data[class_name][type_doc][item] = item_details.to_dict( )
+					if type_doc != 'base':
+						count += len( data[class_name][type_doc].keys( ) )
+			if count == 0 and class_name != 'global':
+				del data[class_name]
 		print( json.dumps( data ) )
 
 def process_dir_recurse( dir_name ):
@@ -753,7 +758,7 @@ def process_dir_recurse( dir_name ):
 		full_file_name = os.path.join( dir_name, file_name )
 		if not os.path.isdir( full_file_name ):
 			#print( "Reading " + full_file_name )
-			if os.path.splitext( full_file_name )[-1] == '.py':
+			if os.path.splitext( full_file_name )[-1] == '.py' and file_name != '.ycm_extra_conf.py':
 				imp.load_source( 'DOCC', full_file_name )
 		else:
 			process_dir_recurse( full_file_name )
@@ -761,7 +766,7 @@ def process_dir_recurse( dir_name ):
 
 def usage( ):
 	"""Usage."""
-	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	doctest|markdown|website." )
+	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	doctest|markdown|json." )
 	sys.exit( 1 )
 	
 def main( ):
