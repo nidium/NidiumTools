@@ -592,7 +592,7 @@ class ExampleDoc( BasicDoc ):
 	"""
 	This handles examples
 	"""
-	def __init__( self, example ):
+	def __init__( self, example, lang='javascript' ):
 		"""
 		>>> a = ExampleDoc( 'print( "hello" )' )
 		>>> a.data
@@ -601,13 +601,15 @@ class ExampleDoc( BasicDoc ):
 		super( self.__class__, self ).__init__( )
 		check_list_type( example, "example", str ) 
 		self.data = example.strip()
+		self.language = lang
 	def to_markdown( self ):
 		"""output prepared for in markdown format."""
-		print( "```javascript\n" + self.data + "\n```" )
+		print( "```" + self.language + "\n" + self.data + "\n```" )
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
 		data['data'] = self.data
+		data['language'] = self.language
 		return( data )
 
 def SeesDocs( list_of_sees ):
@@ -727,28 +729,67 @@ def check( docs ):
 
 def report( variant , docs ):
 	"dump it in a layout"
-	if variant == 'markdown':
-		for class_name, class_details in docs['classes'].items( ):
-			print( "\n\n\n\n#" + class_name + "\n" )
-			for type_doc, type_details in class_details.items( ):
-				print( "\n\n\n## " + type_doc + "\n" )
-				for item, item_details in type_details.items( ):
-					print( "\n\n### " + item + "\n" )
-					item_details.to_markdown( )
-	elif variant == 'json':
-		data = {}
-		for class_name, class_details in docs['classes'].items( ):
-			data[class_name] = {}
-			count = 0
-			for type_doc, type_details in class_details.items( ):
-				data[class_name][type_doc] = {}
-				for item, item_details in type_details.items( ):
-					data[class_name][type_doc][item] = item_details.to_dict( )
-					if type_doc != 'base':
-						count += len( data[class_name][type_doc].keys( ) )
-			if count == 0 and class_name != 'global':
-				del data[class_name]
+	data = {}
+	for class_name, class_details in docs['classes'].items( ):
+		data[class_name] = {}
+		count = 0
+		for type_doc, type_details in class_details.items( ):
+			data[class_name][type_doc] = {}
+			for item, item_details in type_details.items( ):
+				data[class_name][type_doc][item] = item_details.to_dict( )
+				if type_doc != 'base':
+					count += len( data[class_name][type_doc].keys( ) )
+		if count == 0 and class_name != 'global':
+			del data[class_name]
+	if variant == 'json':
 		print( json.dumps( data ) )
+	elif variant == 'exampletest':
+		function_names = []
+		code = ''
+		for class_name, class_details in data.items( ):
+			for type_doc, type_details in class_details.items( ):
+				for item, item_details in type_details.items( ):
+					for i, example in enumerate( item_details['examples'] ):
+						if example['language'] == 'javascript':
+							function_name = 'test_' + class_name + '_' + type_doc + "_" + item.replace('.', '_') + "_" + str( i )
+							function_names.append( function_name )
+							code += "\n" + function_name + " = function() {\n" + example['data'] + "\n};\n"
+		code = """var COUNTERS = { examples: 0, fails : 0};
+try {
+""" + code + """
+} catch( err ) {
+	COUNTERS.fails = 1;
+	console.log('Syntax error in example code; Go fix that!' + err.message );
+}
+if ( ! COUNTERS.fails ) {
+	try {
+		var fns = ['""" + "', '".join( function_names ) + """'];
+		for (var i in fns ) {
+			console.log('running: ' + fns[i] );
+			global[fns[i]]();
+			COUNTERS.examples++;
+		}
+	} catch ( err ) {
+		console.log( err.message );
+		COUNTERS.fails++;
+	}
+	if ( COUNTERS.fails > 0 ) {
+		console.log( COUNTERS.fails + ' examples did not run correctly! Go fix them!' );
+	} else {
+		console.log( "These " + COUNTERS.examples + " examples seem to be ok!" );
+	}
+}"""
+		print( code )
+	elif variant == 'markdown':
+		for class_name, class_details in docs['classes'].items( ):
+			if data.has_key( class_name ):
+				print( "\n\n\n\n#" + class_name + "\n" )
+				for type_doc, type_details in class_details.items( ):
+					if type_doc != 'base' and len( type_details.keys( ) ) > 0:
+						print( "\n\n\n## " + type_doc + "\n" )
+						for item, item_details in type_details.items( ):
+							print( "\n\n### " + item + "\n" )
+							item_details.to_markdown( )
 
 def process_dir_recurse( dir_name ):
 	"""
@@ -763,10 +804,10 @@ def process_dir_recurse( dir_name ):
 		else:
 			process_dir_recurse( full_file_name )
 
-
+VARIANTS = ['doctest', 'markdown', 'json', 'exampletest']
 def usage( ):
 	"""Usage."""
-	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	doctest|markdown|json." )
+	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	'" + "', '".join( VARIANTS ) + "'." )
 	sys.exit( 1 )
 	
 def main( ):
@@ -777,7 +818,7 @@ def main( ):
 	if cmd == 'doctest':
 		import doctest
 		doctest.testmod( )
-	elif len( sys.argv ) > 2 and cmd == 'markdown' or cmd == 'json':
+	elif len( sys.argv ) > 2 and cmd in VARIANTS:
 		for i in range( 2, len( sys.argv ) ):
 			process_dir_recurse( sys.argv[i] )
 		if not sys.modules.has_key( 'DOCC' ):
