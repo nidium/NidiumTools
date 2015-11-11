@@ -6,7 +6,7 @@ Contents:
 
  * Konstructor: tool to manage dependencies and build configurations
  * Styleguidor: tool to rate the c/c++ code
- * Documentor:	tool to keep the documentation, examples and code in sync.
+ * Dokumentor:	tool to keep the documentation, examples and code in sync.
 
 ## Konstructor
 
@@ -22,11 +22,11 @@ This uses the :
 Every project has a `configure` python script, that uses this.
 
 ```
-PYTHONPATH=~/NativeTools/src/&&./configure --third-party=../../third-party/
+export PYTHONPATH=~/NativeTools/src/&&./configure --debug --third-party=../../third-party/
 ```
 
 Basically you pass --third-party the thirdparty path and PYTHONPATH to the path 
-where `konstruktor.py` is
+where `konstruktor.py` is.
 
 ## Styleguidor
 
@@ -60,29 +60,27 @@ The code got a score of 4.5.
 Simple, but effective way to for the developer to keep the documentation and 
 the code in sync without to much hassle.
 
-While programming C/C++ to expose Javascript, you write *currently python code*
-(later probably jsdoc) inside '/*$ comments $*/'. These comments will be extracted 
-and transformed with `documentor.py` into `markdown`
-
-Note: *This tool is will undergo drastic changes in the _near_ future*.
+While programming C/C++ to expose Javascript, you write *currently python code* 
+inside '/*$ comments $*/'. These comments will be extracted 
+and transformed with `dokumentor.py` into `markdown`, `json` or just the 
+examples  as test cases.
 
 ### Show me the code
 
-In the c/c++ code you can write comments like:
+You basically write python code like this:
 
 ```
-/*$
+from dokumentor import *
 FunctionDoc( "HTTPRequest.write", "Respond to a client that made a request to the webserver",
 	[ SeeDoc( "HTTPListener" ), SeeDoc( "HTTPRequest.write"), SeeDoc( "HTTPRequest.end" ), SeeDoc( "HTTPRequest.writeHead" ) ],
 	NO_Examples,
 	IS_Dynamic, IS_Public, IS_Fast,
-	[ ParamDoc( "data", "The data to send out", "string|ArrayBuffer", IS_Obligated ) ],
+	[ ParamDoc( "data", "The data to send out", "string|ArrayBuffer", NO_Default, IS_Obligated ) ],
 	NO_Returns
 );
-$*/
 ```
 
-And by pointing `src/dokumentor.py` to the file's direcory it could create:
+And by running `./src/dokumentor.py markdown the-amazing-raw-docs-are-in-this-directory-or-files` it could output:
 
 ```
 _HTTPRequest.write__
