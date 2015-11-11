@@ -79,7 +79,7 @@ class CommandLine:
                 if callback not in out:
                     out[callback] = []
 
-                for option, value in vars(options).iteritems():
+                for option, value in vars(options).items():
                     if option == name:
                         out[callback].append(value)
 
@@ -101,13 +101,13 @@ class CommandLine:
 
             if "default" in kwargs:
                 default = kwargs["default"]
-                if type(default) == types.BooleanType:
+                if type(default) == bool:
                     t = None
                     if default is True:
                         action = "store_false"
                     else:
                         action = "store_true"
-                elif type(default) == types.IntType:
+                elif type(default) == int:
                     t = "int"
 
             CommandLine._options[name].append(f)
@@ -211,7 +211,7 @@ class ConfigCache:
 
                 # We can only have one cache entry per config per dep
                 # find and remove duplicate
-                for h in configCache[key].keys():
+                for h in list(configCache[key].keys()):
                     cachedConf = configCache[key][h]
                     if h != eHash and cachedConf == eConfig:
                         del configCache[key][h]
@@ -460,7 +460,7 @@ class Utils:
 class Log:
     @staticmethod
     def echo(string):
-        print string
+        print(string)
 
     @staticmethod
     def info(string):
@@ -513,7 +513,7 @@ class Dep:
             if options is not None:
                 # merge decoration options with the options 
                 # returned by the decorated function
-                self.options = dict(self.options.items() + options.items())
+                self.options.update(options.items())
 
         # Check if we need to download the dep
         if "location" in self.options:
@@ -590,7 +590,6 @@ class Dep:
                             self.needBuild = True
                             break
                     """
-
     def download(self):
         if not self.needDownload:
             return 
@@ -922,7 +921,7 @@ class Builder:
 
         def run(self, target=None, parallel=True):
             defines = ""
-            for key, value in Builder.Gyp._defines.iteritems():
+            for key, value in Builder.Gyp._defines.items():
                 defines += " -D%s=%s" % (key, value)
             defines += " "
 
