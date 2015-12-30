@@ -874,11 +874,13 @@ class Deps:
         
     @staticmethod
     def set(*args):
+        offset = 0
         for dep in args:
             if isinstance(dep, Deps.Konstruct):
                 dep.importDep()
             else:
-                Deps.deps.append(dep)
+                Deps.deps.insert(offset, dep)
+                offset += 1
 # }}}
 
 # {{{ Builders
