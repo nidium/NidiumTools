@@ -109,13 +109,12 @@ class CommandLine:
                         action = "store_true"
                 elif type(default) == int:
                     t = "int"
-
             CommandLine._options[name].append(f)
             CommandLine.optionParser.add_option(name, dest=name, default=default, action=action, type=t)
 
             return f
 
-        return decorator 
+        return decorator
 
 @CommandLine.option("--configuration", default="")
 def configuration(config):
@@ -248,7 +247,7 @@ class ConfigCache:
     def _write(stamps, dst):
         import json
         open(dst, "w").write(json.dumps(stamps, indent=4))
-        
+
     @staticmethod
     def _read(location):
         import json
@@ -288,7 +287,7 @@ class Utils:
         with Utils.Chdir(directory):
             # First check if the patch might have been already aplied
             applied = subprocess.call(["patch", pNum, "-N", "-R", "--dry-run", "--silent"], stdin=patch, stdout=nullout, stderr=subprocess.STDOUT)
-            
+
             if applied == 0:
                 Log.info("    Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
             else:
@@ -366,7 +365,13 @@ class Utils:
         code = child.returncode
 
         if Variables.get("verbose", False):
-            Log.info("Command result : \n    Code %d\n    stdout : %s\n    stderr: %s" % (code, output, error))
+            str = "Command result:\n\tCode: %d " % code
+            if output:
+                str += "\n\tOutput: '%s'" % output
+            if error:
+                str += "\n\tError: '%s'" % error
+            if code != 0:
+                log.info(str + "\n")
         else:
             LOG_FILE.write(output)
             LOG_FILE.flush()
@@ -376,7 +381,7 @@ class Utils:
                 Utils.exit("Failed to run previous command")
         else:
             Log.success("Success")
-        
+
         return code, output
 
     @staticmethod
@@ -426,7 +431,7 @@ class Utils:
                 return Utils._httpDownload(location, downloadDir, destinationDir)
             else:
                 Utils.exit("Protocol not supported for downloading " + location)
-        
+
     @staticmethod
     def _httpDownload(url, downloadDir, destinationDir):
         import urllib2
@@ -450,9 +455,9 @@ class Utils:
 
         f.close()
 
-        print("dest=%s" % destinationDir)
+        Log.echo("Destination %s" % (destinationDir))
         if destinationDir:
-            print("extract")
+            Log.echo("Extracting %s" % (f.name))
             Utils.extract(os.path.join(downloadDir, f.name), destinationDir)
 # }}}
 
@@ -521,16 +526,16 @@ class Dep:
             self.downloadConfig = cache
 
             self.linkDir = {"src": os.path.join("." + cache["config"], self.name), "dest": self.name}
-            self.extractDir = self.linkDir["src"]
-
+            self.extractDir = self.linkDir['src']
             exists = os.path.exists(self.extractDir)
             if cache["new"] and not exists:
-                Log.debug("Need download because configuration for this dep is new")
+                Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
                 self.needDownload = True
             elif not exists:
-                Log.debug("Need download because output dir does not exists")
+                Log.debug("Need download because output dir '%s' does not exists" % (self.extractDir))
                 self.needDownload = True
             elif not os.path.islink(self.linkDir["dest"]):
+                Log.debug("Need symlink because destination dir '%s' does not exists" % (self.linkDir["dest"]))
                 Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
 
         # Define some variables needed for building/symlinking
@@ -600,7 +605,6 @@ class Dep:
         if self.linkDir:
             # Make the dep directory point to the directory matching the configuration
             Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
-
         self.cache.update(self.name + "-download", self.downloadConfig);
 
     def patch(self):
@@ -643,7 +647,6 @@ class Dep:
                     Utils.run(cmd)
 
             self.symlinkOutput()
-
         self.cache.update(self.name + "-build", self.buildConfig)
 
     def findOutputs(self):
@@ -680,7 +683,7 @@ class Dep:
                 except:
                     outputs.append(out)
                     continue
-                    
+
                 for f in files:
                     if re.match(name, f):
                         out["found"] = True
@@ -704,7 +707,7 @@ class Dep:
         import re
 
         if "outputs" not in self.options:
-            Log.debug("No outputs for " + self.name)
+            Log.debug("No need for outputs of " + self.name)
             return
 
         outputs = self.findOutputs()
@@ -717,12 +720,12 @@ class Dep:
                 if self.needBuild or not os.path.exists(destFile) :
                     # New outputs have been generated
                     # Copy them to the build dir 
-                    Log.debug("Found output %s, copy to %s" % (output["src"], destFile))
+                    Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
                     shutil.copyfile(output["src"], destFile)
 
                 # Symlink the current config
                 if not output["copyOnly"]:
-                    Log.debug("symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
+                    Log.debug("Need symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
                     Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
             else:
                 Utils.exit("Output %s for %s not found" % (output["src"], self.name))
@@ -747,7 +750,7 @@ class Deps:
                     imp.load_source(self.name, file)
                 except Exception as e:
                     Utils.exit("Failed to import konstruct dependency %s : %s" % (self.location, e))
-            
+
     class Repo:
         def __init__(self, location, revision=None):
             self.location = location
@@ -871,7 +874,7 @@ class Deps:
     @staticmethod
     def getDir():
         return Deps.path
-        
+
     @staticmethod
     def set(*args):
         offset = 0
@@ -960,7 +963,6 @@ class Builder:
             else:
                 # TODO : Windows support
                 Utils.exit("Missing windows support");
-            
             Log.debug("Running gyp. File=%s Target=%s" % (self.name, target));
 
             code, output = Utils.run(runCmd)
