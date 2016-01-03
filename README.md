@@ -22,7 +22,7 @@ This uses the :
 Every project has a `configure` python script, that uses this.
 
 ```
-export PYTHONPATH=~/NativeTools/src/&&./configure --debug --third-party=../../third-party/
+PYTHONPATH=~/NativeTools/src/ ./configure --debug --third-party=../../third-party/
 ```
 
 Basically you pass --third-party the thirdparty path and PYTHONPATH to the path 
