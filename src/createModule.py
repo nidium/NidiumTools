@@ -2,58 +2,60 @@
 
 import os, stat
 from konstructor import CommandLine
+from konstructor import Utils 
 
-def createConfigure(path, name):
-    currentDir = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(currentDir, "module_templates", "templateConfigure.txt"), "r") as srcfile:
+TEMPLATES_PATH = os.path.abspath(os.path.dirname(__file__))
+
+
+
+def loadTemplate(name):
+    with open(os.path.join(TEMPLATES_PATH, "module_templates", name), "r") as srcfile:
         src = srcfile.read()
 
-    f = os.path.join(path, name, "configure")
-    with open(f, "w") as configure:
+    return src
+
+def createConfigure(name):
+    src = loadTemplate("templateConfigure.txt")
+
+    with open("configure", "w") as configure:
         configure.write(src.format(name))
 
-    st = os.stat(f)
-    os.chmod(f, st.st_mode | stat.S_IEXEC)
+    st = os.stat("configure")
+    os.chmod("configure", st.st_mode | stat.S_IEXEC)
 
-def createGyp(path, name, classname):
-    currentDir = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(currentDir, "module_templates", "templateGyp.txt"), "r") as srcfile:
-        src = srcfile.read()
+def createGyp(name, classname):
+    src = loadTemplate("templateGyp.txt")
 
-    with open(os.path.join(path, name, "gyp", name + ".gyp"), "w") as gypfile:
+    Utils.mkdir("gyp")
+
+    with open(os.path.join("gyp", name + ".gyp"), "w") as gypfile:
         gypfile.write(src.format(name, classname))
 
-def createSource(path, name, classname):
-    currentDir = os.path.abspath(os.path.dirname(__file__))
+def createSource(name, classname):
+    src = loadTemplate("templateSource.txt")
 
-    with open(os.path.join(currentDir, "module_templates", "templateSource.txt"), "r") as srcfile:
-        src = srcfile.read()
-
-    with open(os.path.join(path, name, classname + ".cpp"), "w") as cppfile:
+    with open(os.path.join(classname + ".cpp"), "w") as cppfile:
         cppfile.write(src.format(classname=classname))
 
-    with open(os.path.join(currentDir, "module_templates", "templateSourceHeader.txt"), "r") as srcfile:
-        src = srcfile.read()
+    src = loadTemplate("templateSourceHeader.txt")
 
-    with open(os.path.join(path, name, classname + ".h"), "w") as cppfile:
+    with open(os.path.join(classname + ".h"), "w") as cppfile:
         cppfile.write(src.format(classname=classname))
 
-def createDocAndVar(path, name, classname):
-    basePath = os.path.join(path, name)
-
-    os.makedirs(basePath + "/doc")
-    with open("%s/doc/.gitignore" % (name), "w") as cppfile:
+def createDocAndVar(name, classname):
+    Utils.mkdir("doc")
+    with open(os.path.join("doc", ".gitignore"), "w") as cppfile:
         cppfile.write('')
 
-    os.makedirs(basePath + "/var/js/tests/unittests")
-    with open("%s/var/js/tests/unittests/.gitignore" % (name), "w") as cppfile:
+    Utils.mkdir(os.path.join("var","js", "tests", "unittests"))
+    with open(os.path.join("var","js", "tests", "unittests", ".gitignore"), "w") as cppfile:
         cppfile.write('')
 
-    os.makedirs(basePath + "/var/rawdoc")
-    with open("%s/var/rawdoc/.gitignore" % (name), "w") as cppfile:
+    Utils.mkdir(os.path.join("var", "rawdoc"))
+    with open(os.path.join("var", "rawdoc", ".gitignore"), "w") as cppfile:
         cppfile.write('*.pyc\n')
 
-    with open("%s/.gitignore" % (name), "w") as cppfile:
+    with open(".gitignore", "w") as cppfile:
         cppfile.write('*.pyc\nkonstruct.log\nlockfile\nbuild\nthird-party\n')
 
 @CommandLine.option("--name", prompt="The module name", help='What\'s the module name.')
@@ -68,20 +70,26 @@ def createmodule(name, classname, path):
     if path is None:
         path = os.getcwd()
 
-    try:
-        os.makedirs(os.path.join(path, name, "gyp"))
-    except:
-        pass
+    moduleDir = (os.path.abspath(os.path.join(path, name)))
 
-    print("Creating new module in %s " % (os.path.abspath(os.path.join(path, name))))
+    if os.path.exists(moduleDir):
+        ret = Utils.promptYesNo("Directory %s exists, any default module files will be overriden. Continue ? " % moduleDir)
+        if not ret:
+            Utils.exit()
+    else:
+        if not Utils.prompt("module will be created in %s directory. Continue ?" % moduleDir):
+            Utils.exit()
 
-    createConfigure(path, name)
-    createGyp(path, name, classname)
-    createSource(path, name, classname)
-    createDocAndVar(path, name, classname)
+    Utils.mkdir(moduleDir)
 
-    print("You probably want to create a repository with 'git init {0}".format(name))
-    print("Now build by adding --module=%s to the configure script of NativeStudio or NativeServer" % (os.path.abspath(os.path.join(path, name))))
+    with Utils.Chdir(moduleDir):
+        createConfigure(name)
+        createGyp(name, classname)
+        createSource(name, classname)
+        createDocAndVar(name, classname)
+
+    print("Your module is now ready. It can be build by adding the argument --module=%s to the configure script of NativeStudio or NativeServer" % (os.path.abspath(os.path.join(path, name))))
+    print("You may want to create a repository for your module with 'git init {0}".format(name))
 
 if __name__ == '__main__':
     CommandLine.parse()
