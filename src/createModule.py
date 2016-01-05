@@ -6,8 +6,6 @@ from konstructor import Utils
 
 TEMPLATES_PATH = os.path.abspath(os.path.dirname(__file__))
 
-
-
 def loadTemplate(name):
     with open(os.path.join(TEMPLATES_PATH, "module_templates", name), "r") as srcfile:
         src = srcfile.read()
