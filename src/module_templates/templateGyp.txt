@@ -1,0 +1,31 @@
+{{
+    'targets': [{{
+        'target_name': '{0}',
+        'type': 'shared_library',
+        'dependencies': [
+            '<(native_nativejscore_path)/gyp/nativejscore.gyp:nativejscore-includes', 
+            '<(native_network_path)/gyp/network.gyp:nativenetwork-includes'
+        ],
+        'include_dirs': [
+            '<(third_party_path)/'
+        ],
+        'sources': [ '../{1}.cpp'],
+        'conditions': [
+            ['OS=="mac"', {{
+                'xcode_settings': {{
+                    'OTHER_LDFLAGS': [
+                        '-undefined suppress',
+                        '-flat_namespace'
+                    ],
+                }},
+            }},{{
+                'cflags': [
+                    '-fPIC',
+                ],
+                'ldflags': [
+                    '-fPIC',
+                ],
+            }}]
+        ],
+    }}],
+}}
