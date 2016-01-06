@@ -22,21 +22,65 @@ class Variables:
             return default
 # }}}
 
+# {{{ Tests
+class Tests:
+    _tests = []
+
+    @staticmethod
+    def register(*args):
+        for name in args:
+            Tests._tests.append(os.path.abspath(name))
+
+    @staticmethod
+    def run():
+        for test in Tests._tests:
+            code, output = Utils.run(test, verbose=True)
+            if code != 0:
+                return False
+        return True
+
+# }}}
+
 # {{{ Konstruct
 class Konstruct:
     _configuration = ["default"]
+    _hooks = {
+        "start": [],
+        "preBuild": [],
+        "postBuild": [],
+    }
 
     @staticmethod
     def start():
         CommandLine.parse()
+
+        Konstruct._runHook("start")
+
         Deps._process()
-        Build.run()
+
+        Konstruct._runHook("preBuild")
+
+        success = Build.run()
+
+        Konstruct._runHook("postBuild", success)
+
         if len(Platform._exported)  > 0:
             Log.info("\n\n--------------------------\nYou have enabled some features that needs to export shell variables. Please execute the following commands :\n")
             for cmd in Platform._exported:
                 Log.info(cmd)
             Log.info("--------------------------")
 
+    @staticmethod
+    def hook(name):
+        def decorator(f):
+            Konstruct._hooks[name].append(f)
+
+        return decorator 
+
+    @staticmethod
+    def _runHook(name, *args):
+        for hook in Konstruct._hooks[name]:
+            hook(*args)
 
     @staticmethod
     def config(*args):
@@ -387,7 +431,7 @@ class Utils:
         output, error = child.communicate()
         code = child.returncode
 
-        if Variables.get("verbose", False):
+        if Variables.get("verbose", False) or "verbose" in kwargs and kwargs["verbose"]:
             str = "Command result:\n\tCode: %d " % code
             if output:
                 str += "\n\tOutput: '%s'" % output
@@ -395,7 +439,7 @@ class Utils:
                 str += "\n\tError: '%s'" % error
             if code != 0:
                 Log.info(str + "\n")
-        else:
+        elif output is not None:
             LOG_FILE.write(output)
             LOG_FILE.flush()
 
@@ -409,7 +453,7 @@ class Utils:
 
     @staticmethod
     def prompt(string):
-	# Python 2/3 compatibility
+        # Python 2/3 compatibility
         try: input = raw_input
         except NameError: pass
 
@@ -417,25 +461,25 @@ class Utils:
 
     @staticmethod
     def promptYesNo(string, default="yes"):
-	valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
+        valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
 
-	if default is None:
-	    prompt = " [y/n] "
-	elif default == "yes":
-	    prompt = " [Y/n] "
-	elif default == "no":
-	    prompt = " [y/N] "
-	else:
-	    raise ValueError("invalid default answer: '%s'" % default)
+        if default is None:
+            prompt = " [y/n] "
+        elif default == "yes":
+            prompt = " [Y/n] "
+        elif default == "no":
+            prompt = " [y/N] "
+        else:
+            raise ValueError("invalid default answer: '%s'" % default)
 
-	while True:
-	    choice = Utils.prompt(string + prompt).lower()
-	    if default is not None and choice == '':
-		return valid[default]
-	    elif choice in valid:
-		return valid[choice]
-	    else:
-		print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
+        while True:
+            choice = Utils.prompt(string + prompt).lower()
+            if default is not None and choice == '':
+                return valid[default]
+            elif choice in valid:
+                return valid[choice]
+            else:
+                print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
     @staticmethod
