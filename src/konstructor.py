@@ -67,22 +67,31 @@ class CommandLine:
     @staticmethod
     def parse():
         options, args = CommandLine.optionParser.parse_args()
-        optionsDict = vars(options)
-
-        for required in CommandLine._required:
-            if not optionsDict.get(required):
-                CommandLine.optionParser.error("You need to specify %s argument" % required)
 
         out = {}
-        for name, callbacks in CommandLine._options.items():
-            for callback in callbacks:
+
+        for name, command in CommandLine._options.items():
+            for option in command:
+                passedOption = getattr(options, name)
+                callback = option["function"]
+                if option["required"] and getattr(options, name) is None:
+                    CommandLine.optionParser.error("You need to specify %s argument" % required)
+
+
+                if passedOption is None and option["default"] is None:
+                    if option["prompt"]:
+                        while True:
+                            tmp = Utils.prompt("%s : " % option["prompt"])
+                            if not tmp:
+                                print("Please specify a value")
+                            else:
+                                passedOption = tmp
+                                break
+
                 if callback not in out:
                     out[callback] = []
 
-                for option, value in vars(options).items():
-                    if option == name:
-                        out[callback].append(value)
-
+                out[callback].append(passedOption)
 
         for callback, args in out.items():
             callback(*args)
@@ -95,9 +104,14 @@ class CommandLine:
             default = None
             action = "store"
             t = "string"
+            prompt = False
+            required = False 
 
             if "required" in kwargs:
-                CommandLine._required.append(name)
+                required = True
+
+            if "prompt" in kwargs:
+                prompt = kwargs["prompt"] 
 
             if "default" in kwargs:
                 default = kwargs["default"]
@@ -109,7 +123,14 @@ class CommandLine:
                         action = "store_true"
                 elif type(default) == int:
                     t = "int"
-            CommandLine._options[name].append(f)
+
+            CommandLine._options[name].append({
+                "function": f, 
+                "prompt": prompt, 
+                "required": required,
+                "default": default
+            })
+
             CommandLine.optionParser.add_option(name, dest=name, default=default, action=action, type=t)
 
             return f
@@ -118,6 +139,9 @@ class CommandLine:
 
 @CommandLine.option("--configuration", default="")
 def configuration(config):
+    if not config:
+        return
+
     config = config.split(",")
     if len(config) > 0:
         Konstruct.setConfigs(config)
@@ -225,7 +249,7 @@ class ConfigCache:
     def find(self, key, data):
         configCache = ConfigCache._read(self.file)
         newCacheHash = ConfigCache._generateHash(data)
-        config = "-".join(Konstruct.getConfigs()).rstrip("-")
+        config = "-".join(Konstruct.getConfigs())
         ret = {"new": True, "hash":  newCacheHash, "config": config}
 
         if configCache is not None and key in configCache:
@@ -371,7 +395,7 @@ class Utils:
             if error:
                 str += "\n\tError: '%s'" % error
             if code != 0:
-                log.info(str + "\n")
+                Log.info(str + "\n")
         else:
             LOG_FILE.write(output)
             LOG_FILE.flush()
@@ -383,6 +407,37 @@ class Utils:
             Log.success("Success")
 
         return code, output
+
+    @staticmethod
+    def prompt(string):
+	# Python 2/3 compatibility
+        try: input = raw_input
+        except NameError: pass
+
+        return input(string)
+
+    @staticmethod
+    def promptYesNo(string, default="yes"):
+	valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
+
+	if default is None:
+	    prompt = " [y/n] "
+	elif default == "yes":
+	    prompt = " [Y/n] "
+	elif default == "no":
+	    prompt = " [y/N] "
+	else:
+	    raise ValueError("invalid default answer: '%s'" % default)
+
+	while True:
+	    choice = Utils.prompt(string + prompt).lower()
+	    if default is not None and choice == '':
+		return valid[default]
+	    elif choice in valid:
+		return valid[choice]
+	    else:
+		print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
+
 
     @staticmethod
     def extract(path, destination=None):
@@ -921,8 +976,8 @@ class Builder:
         def setConfiguration(config):
             Builder.Gyp._config = config;
 
-        def __init__(self, name):
-            self.name = name
+        def __init__(self, path):
+            self.path = os.path.abspath(path)
 
         def run(self, target=None, parallel=True):
             defines = ""
@@ -930,7 +985,7 @@ class Builder:
                 defines += " -D%s=%s" % (key, value)
             defines += " "
 
-            code, output = Utils.run("%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.name))
+            code, output = Utils.run("%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path))
             cwd = os.getcwd()
 
             os.chdir(OUTPUT)
@@ -938,7 +993,7 @@ class Builder:
             runCmd = ""
 
             if Platform.system == "Darwin":
-                project = os.path.splitext(self.name)[0]
+                project = os.path.splitext(self.path)[0]
                 runCmd = "xcodebuild -project " + project + ".xcodeproj"
                 if parallel:
                     runCmd += " -jobs " + str(Platform.cpuCount)
@@ -963,7 +1018,7 @@ class Builder:
             else:
                 # TODO : Windows support
                 Utils.exit("Missing windows support");
-            Log.debug("Running gyp. File=%s Target=%s" % (self.name, target));
+            Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
 
             code, output = Utils.run(runCmd)
 
