@@ -64,12 +64,6 @@ class Konstruct:
 
         Konstruct._runHook("postBuild", success)
 
-        if len(Platform._exported)  > 0:
-            Log.info("\n\n--------------------------\nYou have enabled some features that needs to export shell variables. Please execute the following commands :\n")
-            for cmd in Platform._exported:
-                Log.info(cmd)
-            Log.info("--------------------------")
-
     @staticmethod
     def hook(name):
         def decorator(f):
@@ -232,11 +226,6 @@ class Platform:
     system = platform.system()
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32 
-    _exported = []
-
-    @staticmethod
-    def exportEnviron(arg):
-        Platform._exported.append("export " + arg)
 
     @staticmethod
     def setEnviron(*args):
@@ -995,6 +984,9 @@ class Build:
     def run():
         for b in BUILD:
             b.run()
+
+        # Right now, in case of failure, Konstructor always exit()
+        return True
 
 class Builder:
     class Gyp:
