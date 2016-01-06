@@ -62,7 +62,6 @@ import types
 class CommandLine:
     optionParser = OptionParser(usage="Usage: %prog [options]")
     _options = OrderedDict()
-    _required = []
 
     @staticmethod
     def parse():
