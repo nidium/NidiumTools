@@ -136,7 +136,9 @@ class CommandLine:
     @staticmethod
     def option(name, **kwargs):
         # Add the option now, so we can keep the order of options
-        CommandLine._options[name] = []
+        if name not in CommandLine._options:
+            CommandLine._options[name] = []
+
         def decorator(f):
             default = None
             action = "store"
@@ -161,6 +163,8 @@ class CommandLine:
                 elif type(default) == int:
                     t = "int"
 
+            exists = (name in CommandLine._options and len(CommandLine._options[name]) > 0)
+
             CommandLine._options[name].append({
                 "function": f, 
                 "prompt": prompt, 
@@ -168,7 +172,8 @@ class CommandLine:
                 "default": default
             })
 
-            CommandLine.optionParser.add_option(name, dest=name, default=default, action=action, type=t)
+            if not exists:
+                CommandLine.optionParser.add_option(name, dest=name, default=default, action=action, type=t)
 
             return f
 
