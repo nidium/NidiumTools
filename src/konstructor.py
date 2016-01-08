@@ -315,6 +315,8 @@ class ConfigCache:
 
 # {{{ Utils
 class Utils:
+    _promptAssumeYes = False
+
     class Chdir:
         def __init__(self, dir):
             self.cwd = os.getcwd()
@@ -448,6 +450,11 @@ class Utils:
 
         return input(string)
 
+
+    @staticmethod
+    def promptAssumeYes(assumeYes):
+        Utils._promptAssumeYes = assumeYes
+
     @staticmethod
     def promptYesNo(string, default="yes"):
         valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
@@ -461,8 +468,14 @@ class Utils:
         else:
             raise ValueError("invalid default answer: '%s'" % default)
 
+        if Utils._promptAssumeYes:
+            print(string + prompt)
+            print("Yes (--assume-yes given)")
+            return True
+
         while True:
             choice = Utils.prompt(string + prompt).lower()
+
             if default is not None and choice == '':
                 return valid[default]
             elif choice in valid:
