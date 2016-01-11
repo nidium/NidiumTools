@@ -22,25 +22,6 @@ class Variables:
             return default
 # }}}
 
-# {{{ Tests
-class Tests:
-    _tests = []
-
-    @staticmethod
-    def register(*args):
-        for name in args:
-            Tests._tests.append(os.path.abspath(name))
-
-    @staticmethod
-    def run():
-        for test in Tests._tests:
-            code, output = Utils.run(test, verbose=True)
-            if code != 0:
-                return False
-        return True
-
-# }}}
-
 # {{{ Konstruct
 class Konstruct:
     _configuration = ["default"]
@@ -93,6 +74,41 @@ class Konstruct:
         return Konstruct._configuration
 # }}}
 
+# {{{ Tests
+class Tests:
+    _tests = []
+
+    @staticmethod
+    def register(subdir, gyps, suites):
+        #Builder.Gyp.set("asan", 1)
+        Builder.Gyp.set("unit_test", 1)
+        Deps.set("gtest")
+        for gyp in gyps:
+            Build.add(Builder.Gyp(os.path.join(subdir, gyp)))
+        for suite in suites:
+            Tests._tests.append(os.path.abspath(os.path.join(subdir, suite)))
+
+    @staticmethod
+    def run():
+        for test in Tests._tests:
+            Log.debug("Running test: %s" % (test))
+            code, output = Utils.run(test, verbose=True)
+            if code != 0:
+                return False
+        return True
+    @staticmethod
+    def runTest(success):
+        if Utils.promptYesNo("Build is finished, do you want to run %d tests?" % (len(Tests._tests))):
+            if Tests.run():
+                Log.success("All test passed \o/")
+            else:
+                Log.error("Unit tests failed :(")
+
+
+
+# }}}
+
+
 # {{{ ComandLine
 from collections import OrderedDict
 from optparse import OptionParser
@@ -129,7 +145,6 @@ class CommandLine:
                     out[callback] = []
 
                 out[callback].append(passedOption)
-
         for callback, args in out.items():
             callback(*args)
 
@@ -407,7 +422,7 @@ class Utils:
     def run(cmd, **kwargs):
         import subprocess
 
-        Log.echo("Executing " + cmd)
+        Log.debug("Executing :" + cmd)
 
         displaySpinner = True
         stdin = stdout = stderr = None 
@@ -1001,6 +1016,7 @@ class Build:
     @staticmethod
     def run():
         for b in BUILD:
+            Log.debug("Building %s" % (b.path))
             b.run()
 
         # Right now, in case of failure, Konstructor always exit()
@@ -1052,7 +1068,6 @@ class Builder:
                     runCmd += " -jobs " + str(Platform.cpuCount)
                 if Builder.Gyp._config is not None:
                     runCmd += " -configuration " + Builder.Gyp._config
-
                 if target is not None:
                     runCmd += " -target " + target
 
@@ -1082,3 +1097,4 @@ class Builder:
 
             return True
 # }}}
+
