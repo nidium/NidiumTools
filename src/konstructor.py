@@ -80,6 +80,7 @@ class Tests:
 
     @staticmethod
     def register(subdir, gyps, suites):
+        #TODO: once the unit tests are more stable' activate this once more:
         #Builder.Gyp.set("asan", 1)
         Builder.Gyp.set("unit_test", 1)
         Deps.set("gtest")
@@ -95,19 +96,22 @@ class Tests:
             code, output = Utils.run(test, verbose=True)
             if code != 0:
                 return False
+        if len(Tests._tests) == 0:
+            Log.debug("No Tests defined")
+            return False
         return True
     @staticmethod
     def runTest(success):
-        if Utils.promptYesNo("Build is finished, do you want to run %d tests?" % (len(Tests._tests))):
+        count = len(Tests._tests)
+        if count == 0:
+            Log.error("Unit tests are missing :(")
+        elif Utils.promptYesNo("Build is finished, do you want to run %d tests?" % (count)):
             if Tests.run():
                 Log.success("All test passed \o/")
             else:
                 Log.error("Unit tests failed :(")
 
-
-
 # }}}
-
 
 # {{{ ComandLine
 from collections import OrderedDict
