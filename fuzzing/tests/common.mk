@@ -9,12 +9,12 @@ $(RUN_DIR)/$(LOCKFILE): $(BIN_FILE)
 
 $(BIN_FILE): $(OBJ_FILE) $(DEP_DIR)/Fuzzer
 	@echo $@
-	@$(CC) -o $@ -g -fsanitize=address $< $(LIBSTDCPP) -Wl,--whole-archive $(LIBS) -Wl,-no-whole-archive $(DEP_DIR)/Fuzzer/Fuzzer*.o
+	@$(CC) -o $@ -g -fsanitize=address $< $(LIBSTDCPP) -Wl,--whole-archive $(LIBS) -Wl,-no-whole-archive $(DEP_DIR)/Fuzzer/Fuzzer*.o $(LIBS_HACK)
 	@chmod +x $@
 
 $(OBJ_FILE): $(SRC_FILE)
 	@echo $@
-	@$(CC) -o $@ -c -fsanitize=address $(COV_FLAGS) -c -std=c++11 $(INCS) -g $<
+	@$(CC) -o $@ -c -fsanitize=address $(COV_FLAGS) $(CC_FLAGS) -c -std=c++11 $(INCS) -g $<
 
 $(DEP_DIR)/Fuzzer:
 	@echo $@
