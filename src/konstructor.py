@@ -117,21 +117,22 @@ class Tests:
 
 # {{{ ComandLine
 from collections import OrderedDict
-from optparse import OptionParser
+from argparse import ArgumentParser 
 import types
 class CommandLine:
-    optionParser = OptionParser(usage="Usage: %prog [options]")
+    optionParser = ArgumentParser()
     _options = OrderedDict()
 
     @staticmethod
     def parse():
-        options, args = CommandLine.optionParser.parse_args()
+        options = CommandLine.optionParser.parse_args()
 
         out = {}
 
         for name, command in CommandLine._options.items():
             for option in command:
                 passedOption = getattr(options, name)
+                print(passedOption)
                 callback = option["function"]
                 if option["required"] and getattr(options, name) is None:
                     CommandLine.optionParser.error("You need to specify %s argument" % required)
@@ -163,7 +164,7 @@ class CommandLine:
         def decorator(f):
             default = None
             action = "store"
-            t = "string"
+            t = str
             prompt = False
             required = False 
 
@@ -175,6 +176,8 @@ class CommandLine:
 
             if "default" in kwargs:
                 default = kwargs["default"]
+                del kwargs["default"]
+
                 if type(default) == bool:
                     t = None
                     if default is True:
@@ -182,7 +185,15 @@ class CommandLine:
                     else:
                         action = "store_true"
                 elif type(default) == int:
-                    t = "int"
+                    t = int
+
+            if "action" in kwargs:
+                action = kwargs["action"]
+                del kwargs["action"]
+
+            if "type" in kwargs:
+                t = kwargs["type"]
+                del kwargs["type"]
 
             exists = (name in CommandLine._options and len(CommandLine._options[name]) > 0)
 
@@ -194,7 +205,10 @@ class CommandLine:
             })
 
             if not exists:
-                CommandLine.optionParser.add_option(name, dest=name, default=default, action=action, type=t)
+                if t != None:
+                    CommandLine.optionParser.add_argument(name, dest=name, default=default, action=action, type=t, **kwargs)
+                else:
+                    CommandLine.optionParser.add_argument(name, dest=name, default=default, action=action, **kwargs)
 
             return f
 
