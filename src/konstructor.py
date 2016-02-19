@@ -79,27 +79,29 @@ class Tests:
     _tests = []
 
     @staticmethod
-    def register(subdir, gyps, suites):
-        #TODO: once the unit tests are more stable' activate this once more:
-        #Builder.Gyp.set("asan", 1)
-        Builder.Gyp.set("unit_test", 1)
-        Deps.set("gtest")
-        for gyp in gyps:
-            Build.add(Builder.Gyp(os.path.join(subdir, gyp)))
+    def register(suites, builders=[]):
+        for builder in builders:
+            Build.add(builder)
+
         for suite in suites:
-            Tests._tests.append(os.path.abspath(os.path.join(subdir, suite)))
+            Tests._tests.append(suite)
 
     @staticmethod
     def run():
+        success = True
+
         for test in Tests._tests:
             Log.debug("Running test: %s" % (test))
-            code, output = Utils.run(test, verbose=True)
+            code, output = Utils.run(test, verbose=True, failExit=False)
             if code != 0:
-                return False
+                success = False
+
         if len(Tests._tests) == 0:
             Log.debug("No Tests defined")
             return False
-        return True
+
+        return success
+
     @staticmethod
     def runTest(success):
         count = len(Tests._tests)
@@ -877,7 +879,7 @@ class Deps:
             # Since dependency can be nested in directories we need to chdir
             with Utils.Chdir(path):
                 try:
-                    imp.load_source(self.name, file)
+                    imp.load_source(self.name, os.path.realpath(file))
                 except Exception as e:
                     Utils.exit("Failed to import konstruct dependency %s : %s" % (self.location, e))
 
