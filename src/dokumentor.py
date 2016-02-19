@@ -744,41 +744,22 @@ def report( variant , docs ):
 	if variant == 'json':
 		print( json.dumps( data ) )
 	elif variant == 'exampletest':
-		function_names = []
 		code = ''
+		counter = 0;
 		for class_name, class_details in data.items( ):
 			for type_doc, type_details in class_details.items( ):
 				for item, item_details in type_details.items( ):
 					for i, example in enumerate( item_details['examples'] ):
 						if example['language'] == 'javascript':
-							function_name = 'test_' + class_name + '_' + type_doc + "_" + item.replace('.', '_') + "_" + str( i )
-							function_names.append( function_name )
-							code += "\n" + function_name + " = function() {\n" + example['data'] + "\n};\n"
-		code = """var COUNTERS = { examples: 0, fails : 0};
-try {
-""" + code + """
-} catch( err ) {
-	COUNTERS.fails = 1;
-	console.log('Syntax error in example code; Go fix that!' + err.message );
-}
-if ( ! COUNTERS.fails ) {
-	try {
-		var fns = ['""" + "', '".join( function_names ) + """'];
-		for (var i in fns ) {
-			console.log('running: ' + fns[i] );
-			global[fns[i]]();
-			COUNTERS.examples++;
-		}
-	} catch ( err ) {
-		console.log( err.message );
-		COUNTERS.fails++;
-	}
-	if ( COUNTERS.fails > 0 ) {
-		console.log( COUNTERS.fails + ' examples did not run correctly! Go fix them!' );
-	} else {
-		console.log( "These " + COUNTERS.examples + " examples seem to be ok!" );
-	}
-}"""
+							name = class_name + '.' + type_doc + "." + item + "." + str( i );
+							examplecode = "\n\t\t".join( example['data'].splitlines( ) )
+#							examplecode = "\n\ttry {\n\t\t" + examplecode + "\n\t} catch( err ) {\n\t\tconsole.log('Syntax error in example code; Go fix `" + name + "`!' + err.message );\n\t}"
+							code += '\nTests.register("' + name + '", function( ) {'
+							code += "\n\tvar dummy = " + str( counter ) + ';'
+							code += "\n\t\t" + examplecode
+							code += "\n\n\tAssert.equal(dummy, " +str( counter ) +');'
+							code += '\n});\n'
+							counter += 1;
 		print( code )
 	elif variant == 'markdown':
 		for class_name, class_details in docs['classes'].items( ):
@@ -798,8 +779,8 @@ def process_dir_recurse( dir_name ):
 	for file_name in os.listdir( dir_name ):
 		full_file_name = os.path.join( dir_name, file_name )
 		if not os.path.isdir( full_file_name ):
-			#print( "Reading " + full_file_name )
 			if os.path.splitext( full_file_name )[-1] == '.py' and file_name != '.ycm_extra_conf.py':
+				#print( "#Reading " + full_file_name )
 				imp.load_source( 'DOCC', full_file_name )
 		else:
 			process_dir_recurse( full_file_name )
