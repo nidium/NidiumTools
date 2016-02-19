@@ -132,7 +132,6 @@ class CommandLine:
         for name, command in CommandLine._options.items():
             for option in command:
                 passedOption = getattr(options, name)
-                print(passedOption)
                 callback = option["function"]
                 if option["required"] and getattr(options, name) is None:
                     CommandLine.optionParser.error("You need to specify %s argument" % required)
@@ -226,6 +225,15 @@ def configuration(config):
 @CommandLine.option("--verbose", default=False)
 def verbose(verbose):
     Variables.set("verbose", True)
+
+@CommandLine.option("--ignore-build", default="")
+def ignoreBuild(ignoreBuild):
+    if not ignoreBuild:
+        return
+
+    for dep in ignoreBuild.split(","):
+        if dep in AVAILABLE_DEPS["default"]:
+            AVAILABLE_DEPS["default"][dep].ignoreBuild = True
 
 @CommandLine.option("--force-download", default="")
 @CommandLine.option("--force-build", default="")
@@ -647,6 +655,7 @@ class Dep:
 
         self.needDownload = False
         self.needBuild = False
+        self.ignoreBuild = False
 
         self.linkDir = None
         self.outputFiles = []
@@ -741,6 +750,10 @@ class Dep:
                             self.needBuild = True
                             break
                     """
+            if self.ignoreBuild:
+                Log.debug("Build discarded because of --ignore-build flag")
+                self.needBuild = False
+
     def download(self):
         if not self.needDownload:
             return 
