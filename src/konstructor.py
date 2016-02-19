@@ -548,7 +548,13 @@ class Utils:
         if downloadDir is None:
             downloadDir = tempfile.gettempdir()
 
-        if type(location) != types.StringType:
+        isStr = False
+        try:
+            isStr = isinstance(location, basestring)
+        except NameError:
+            isStr = isinstance(location, str)
+
+        if not isStr:
             return location.download(destinationDir)
         else:
             if location.startswith("http"):
