@@ -91,7 +91,7 @@ class Tests:
         success = True
 
         for test in Tests._tests:
-            Log.debug("Running test: %s" % (test))
+            Log.debug("Running tests suite : %s" % (test))
             code, output = Utils.run(test, verbose=True, failExit=False)
             if code != 0:
                 success = False
