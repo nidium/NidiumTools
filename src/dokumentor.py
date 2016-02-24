@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2.7
 """
 Tool to generate documentation in a different way then JSDoc does
 
@@ -747,6 +747,7 @@ def report( variant , docs ):
 		code = ''
 		counter = 0;
 		for class_name, class_details in data.items( ):
+			code += "Tests.register('Running tests for %s', function() {});\n" % class_name
 			for type_doc, type_details in class_details.items( ):
 				for item, item_details in type_details.items( ):
 					for i, example in enumerate( item_details['examples'] ):
