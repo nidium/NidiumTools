@@ -62,7 +62,7 @@ def dotstr( text ):
 	return text
 
 def splittype( typed ):
-	"""splits a string nto a list, eventually by using a '|'
+	"""splits a string into a list, eventually by using a '|'
 	>>> splittype( 'he' )
 	['he']
 
@@ -90,11 +90,14 @@ def check_type( var, var_name, base_type ):
 	TypeError: h: str expected, got: int
 	"""
 	rok = True
-	if not isinstance( var, base_type ):
+	if type( var ).__name__ == 'ObjectDoc':
+		pass
+	elif not isinstance( var, base_type ):
 		rok = False
-		if base_type.__name__ == 'ParamDoc':
-			if type( var ).__name__ == 'CallbackDoc':
-				rok = True
+		#if base_type.__name__ == 'ParamDoc':
+		#	if type( var ).__name__ == 'CallbackDoc':
+		#		if type( var ).__name__ == 'ParamDoc':
+		#			rok = True
 	if not rok:
 		raise TypeError( var_name + ": " + base_type.__name__ + " expected, got: " + type( var ).__name__ )
 
@@ -126,6 +129,8 @@ def check_list_type( list_name, var_name, base_class_type ):
 	"""
 	if list_name is None:
 		list_name = []
+	if type( list_name).__name__ == 'ObjectDoc':
+		pass
 	elif isinstance( list_name, base_class_type ):
 		list_name = [ list_name ]
 	else:
@@ -226,19 +231,21 @@ class DetailDoc( TechnicalDoc ):
 		self.is_static = is_static
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		print( "__" + self.name + "__\n\n" + dotstr( self.description ) + "\n" )
-		print( "__Public__: " + boolstr( self.is_public ) + "\n" )
-		print( "__Static__: " + boolstr( self.is_static ) + "\n" )
+		lines = ""
+		lines += "__" + self.name + "__\n\n" + dotstr( self.description ) + "\n"
+		lines += "__Public__: " + boolstr( self.is_public ) + "\n"
+		lines + "__Static__: " + boolstr( self.is_static ) + "\n"
 		if len( self.sees ) > 0:
-			print( "__Sees__:" + "\n" )
+			lines += "__Sees__:" + "\n"
 			for see in self.sees:
 				if (self.name is not see.data ):
-					see.to_markdown( )
+					lines += see.to_markdown( )
 		if len( self.examples ) > 0:
-			print( "\n__Examples__:" + "\n" )
+			lines += "\n__Examples__:" + "\n"
 			for example in self.examples:
-				example.to_markdown( )
-		print( "\n" )
+				lines += example.to_markdown( )
+		lines += "\n"
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data =  super( DetailDoc, self ).to_dict( )
@@ -277,7 +284,7 @@ class NamespaceDoc( DetailDoc ):
 		super( self.__class__, self ).__init__( name, description, sees, examples, True, True )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( NamespaceDoc, self ).to_markdown( )
+		return super( NamespaceDoc, self ).to_markdown( )
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
@@ -299,15 +306,16 @@ class ClassDoc( DetailDoc ):
 		self.extends = check_list_type( extends, "extends", str )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_markdown( )
+		lines = super( self.__class__, self ).to_markdown( )
 		if len( self.inherrits ) > 0 :
-			print( "\n__Inherrits__:" + "\n" )
+			lines += "\n__Inherrits__:" + "\n"
 			for inherrit in self.inherrits:
-				print( inherrit )
+				lines += inherrit
 		if len( self.extends ) > 0 :
-			print( "\n__Extends__:" + "\n" )
+			lines += "\n__Extends__:" + "\n"
 			for examp in self.extends:
-				print( examp )
+				lines += examp
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
@@ -351,18 +359,19 @@ class FunctionDoc( DetailDoc ):
 		self.returns = check_list_type( returns, "returns", ReturnDoc )
 	def to_markdown( self ):
 		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( FunctionDoc, self ).to_markdown( )
+		lines = super( FunctionDoc, self ).to_markdown( )
 		if ( self.params ) > 0:
-			print( "\n__Parameters__:" + "\n"  )
+			lines +="\n__Parameters__:" + "\n"
 			for param in self.params:
-				param.to_markdown( )
-		print( "__Constructor__:" + boolstr( self.is_constructor ) + "\n" )
+				lines += param.to_markdown( )
+		lines += "__Constructor__:" + boolstr( self.is_constructor ) + "\n"
 		if self.is_slow:
-			print( ">**Warning:**\n>as `" + self.name + "` is a synchronous method, it will block nidium and the UI until the reading process is complete" )
+			lines += ">**Warning:**\n>as `" + self.name + "` is a synchronous method, it will block nidium and the UI until the reading process is complete"
 		if len( self.returns ) > 0:
-			print( "\n__Returns__:" + "\n" )
+			lines += "\n__Returns__:" + "\n"
 			for ret in self.returns:
-				ret.to_markdown( )
+				lines += ret.to_markdown( )
+		return lines;
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( FunctionDoc, self ).to_dict( )
@@ -394,7 +403,7 @@ class ConstructorDoc( FunctionDoc ):
 		self.is_constructor = True
 	def to_markdown( self ):
 		"""output prepared for in markdown format."""
-		super( self.__class__, self ).to_markdown( )
+		return super( self.__class__, self ).to_markdown( )
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		return super( self.__class__, self ).to_dict( )
@@ -438,15 +447,24 @@ class FieldDoc( DetailDoc ):
 		if typed is None:
 			raise ValueError( "Type is not defined" )
 		typed = splittype( typed )
-		check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined....
+		typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined....
 		self.typed = typed
 	def to_markdown( self ):
 		"""output prepared in markdown format."""
-		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description ) ) 
+		lines = ""
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			typed = [self.typed.to_markdown()]
+		else:
+			typed = self.typed
+		lines += self.name + "\t'" + "', '".join( typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description )
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
-		data['typed'] = self.typed
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			data['typed'] = self.typed.to_dict();
+		else:
+			data['typed'] = self.typed
 		data['is_readonly'] = self.is_readonly
 		return( data )
 
@@ -465,11 +483,20 @@ class ReturnDoc( TechnicalDoc ):
 		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
 	def to_markdown( self ):
 		"""output prepared in markdown format."""
-		print( "'" +  "', '".join( self.typed ) + "'\t" + dotstr( self.description ) ) 
+		lines = ""
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			typed = [self.typed.to_markdown()]
+		else:
+			typed = self.typed
+		lines += "'" +  "', '".join( typed ) + "'\t" + dotstr( self.description )
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
-		data['typed'] = self.typed
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			data['typed'] = self.typed.to_dict();
+		else:
+			data['typed'] = self.typed
 		return( data )
 
 class ParamDoc( TechnicalDoc ):
@@ -511,11 +538,20 @@ class ParamDoc( TechnicalDoc ):
 		self.is_optional = is_optional
 	def to_markdown( self ):
 		"""output prepared in markdown format."""
-		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) ) 
+		lines = ''
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			typed = [self.typed.to_markdown()]
+		else:
+			typed = self.typed
+		lines += self.name + "\t'" + "', '".join( typed ) + "'\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description )
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( ParamDoc, self ).to_dict( )
-		data['typed'] = self.typed
+		if (type(self.typed).__name__) == 'ObjectDoc':
+			data['typed'] = self.typed.to_dict();
+		else:
+			data['typed'] = self.typed
 		data['default'] = self.default
 		data['is_optional'] = self.is_optional
 		return( data )
@@ -539,10 +575,11 @@ class EventDoc( FunctionDoc ):
 		self.params = check_list_type( params, "params", ParamDoc )
 	def to_markdown( self ):
 		"""output prepared in markdown format."""
-		super( self.__class__, self ).to_markdown( )
+		return super( self.__class__, self ).to_markdown( )
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
+		print(data)
 		return( data )
 
 
@@ -575,10 +612,16 @@ class CallbackDoc( ParamDoc ):
 		self.params = check_list_type( params, "params", ParamDoc )
 	def to_markdown( self ):
 		"""output prepared in markdown format."""
+		lines = ''
 		extra = ""
 		for param in self.params:
-			extra += param.name + "\t'" + "', '".join( param.typed ) + "'\t" + boolstr( param.is_optional ) + "\t" + dotstr( param.description ) + "\n"
-		print( self.name + "\t" + "'callback'" + "\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) + extra )
+			if (type(param.typed).__name__) == 'ObjectDoc':
+				typed = [param.typed.to_markdown()]
+			else:
+				typed = param.typed
+			extra += param.name + "\t'" + "', '".join( typed ) + "'\t" + boolstr( param.is_optional ) + "\t" + dotstr( param.description ) + "\n"
+		lines += self.name + "\t" + "'callback'" + "\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) + extra
+		return lines
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
@@ -599,12 +642,12 @@ class ExampleDoc( BasicDoc ):
 		'print( "hello" )'
 		"""
 		super( self.__class__, self ).__init__( )
-		check_list_type( example, "example", str ) 
+		check_list_type( example, "example", str )
 		self.data = example.strip()
 		self.language = lang
 	def to_markdown( self ):
 		"""output prepared for in markdown format."""
-		print( "```" + self.language + "\n" + self.data + "\n```" )
+		return "```" + self.language + "\n" + self.data + "\n```"
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
@@ -622,7 +665,7 @@ def SeesDocs( list_of_sees ):
 	>>> a = SeesDocs( "dummy1|dummy2" )
 	>>> a[1].data
 	'dummy2'
-	""" 
+	"""
 	if list_of_sees:
 		list_of_sees = splittype( list_of_sees )
 		for i, see in enumerate( list_of_sees ):
@@ -636,7 +679,7 @@ class SeeDoc( BasicDoc ):
 	def __init__( self, see ):
 		"""
 		>>> a = SeeDoc( 'dummy' )
-		>>> a.data 
+		>>> a.data
 		'dummy'
 		"""
 		super( self.__class__, self ).__init__( )
@@ -644,18 +687,76 @@ class SeeDoc( BasicDoc ):
 		self.data = see
 	def to_markdown( self ):
 		"""output prepared for in markdown format."""
-		print( "__" + self.data + "__" )
+		return "__" + self.data + "__"
 	def to_dict( self ):
 		"""Prepare a normal interface to export data."""
 		data = super( self.__class__, self ).to_dict( )
 		data['data'] = self.data
 		return( data )
 
+class ObjectDoc( BasicDoc ):
+	"""
+	This handles object definitions (for instance in return types)"
+	"""
+	def __init__( self, obj ):
+		"""
+		>>> a = ObjectDoc( [] )
+		>>> a.data
+		[]
+		>>> a = ObjectDoc( [("key", "text", 'integer')] )
+		>>> a.data
+		[('key', 'text', 'integer')]
+		>>> a.to_markdown()
+		'[key: text (integer)]'
+		>>> a.to_dict()
+		{'type': 'Object', 'name': 'JS Object', 'details': [{'typed': 'integer', 'name': 'key', 'description': 'text'}]}
+		"""
+		#todo automatically [] if it is not a list
+		super( self.__class__, self ).__init__( )
+		check_list_type( obj, "obj", list )
+		self.data = []
+		for name, description, typed in obj:
+			if type(typed).__name__ == 'ObjectDoc':
+				pass
+			elif '|' in typed:
+				typed = splittype(typed)
+			self.data.append((name,description, typed));
+	def to_markdown( self ):
+		"""output prepared for in markdown format."""
+		lines = ""
+		data = []
+		for name, description, typed in self.data:
+			if isinstance(typed, list):
+				tpy = "|".join(typed)
+			elif type(typed).__name__ == 'ObjectDoc':
+				tpy = typed.to_markdown()
+			else:
+				tpy = typed
+			data.append(name + ": " + description + " (" + tpy + ")" )
+		lines += "[" + ", ".join(data) + "]"
+		return lines
+	def to_dict( self ):
+		"""Prepare a normal interface to export data."""
+		details = [];
+		for name, description, typed in self.data:
+			if isinstance(typed, list):
+				tpy = "|".join(typed)
+			elif type(typed).__name__ == 'ObjectDoc':
+				tpy = typed.to_dict()
+			else:
+				tpy = typed
+			details.append( {'name' : name, 'description': description, 'typed': tpy} )
+		data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
+		return( data )
+
+
 def check( docs ):
 	"do some checks"
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 'Array', 
-		'object', '?',
-		'SocketClient', 'Canvas', 'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
+	#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
+	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'ArrayBuffer', 'Uint16Array', 'Array', 
+				'function',	 #todo: get rid of this; only allow CallbackDoc
+				'JS Object', #'?', 'object', #todo, get rid of these; only allow ObjectDoc
+				'SocketClient', 'Canvas', 'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
 				]
 	for typed in list( types_list ):
 		types_list.append( "[" + typed + "]" )
@@ -674,59 +775,38 @@ def check( docs ):
 					sys.stderr.write( "Class/Namespace '" + class_name + "' is not defined.\n" )
 					sys.exit( 1 )
 			for item, item_details in type_details.items( ):
-				#TODO: Refractor
-				if hasattr( item, "sees" ) :
-					for sees in item_details.sees:
-						if sees.data not in items_list:
-							sys.stderr.write( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "inherrits" ):
-					for typed in item_details.inherrits:
-						if typed not in types_list:
-							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "extends" ):
-					for typed in item_details.extends:
-						if typed not in types_list:
-							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "constructors" ):
-					for constructor in item_details.constructors:
-						for typed in constructor.typed:
-							if typed not in types_list:
-								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
-								sys.exit( 1 )
-				if hasattr( item_details, "returns" ):
-					for returns in item_details.returns:
-						for typed in returns.typed:
-							if typed not in types_list:
-								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
-								sys.exit( 1 )
-				if hasattr( item_details, "events" ):
-					for params in item_details.events:
-							for typed in params.typed:
-								if typed not in types_list:
-									sys.stderr.write( "The type '" + typed + "' in " + item + " 's EventDoc is not defined.\n" )
-									sys.exit( 1 )
-				if hasattr( item_details, "params" ):
-					for params in item_details.params:
-						if type( params ).__name__ == 'CallbackDoc':
-							for param in params.params:
-								for typed in param.typed:
-									if typed not in types_list:
-										sys.stderr.write( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined.\n" )
-										sys.exit( 1 )
-						else:
-							for typed in params.typed:
-								if typed not in types_list:
-									sys.stderr.write( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined.\n" )
-									sys.exit( 1 )
-				if hasattr( item_details, "properties" ):
-					for prop in item_details.properties:
-						if prop.typed not in types_list:
-							sys.stderr.write( "The type '" + prop.typed + "' in " + item + "'s FieldDoc is not defined.\n" )
-							sys.exit( 1 )
-
+				chapters = [ #'sees', 
+					'inherrits', 'extends', 'constructors', 'returns', 'events', 'params', 'properties']
+				for ch in chapters:
+					if hasattr(item_details, ch):
+						ch_details = getattr(item_details, ch)
+						for ch_detail in ch_details:
+							if hasattr(ch_detail, "typed") :
+								if type(getattr(ch_detail, "typed" )).__name__ == 'ObjectDoc':
+									for name, description, typed in ch_detail.typed.data:
+										if not isinstance(typed, list):
+											typed = [typed]
+										for obtyped in typed:
+											if type(obtyped).__name__ != 'ObjectDoc' and obtyped not in types_list:
+												#todo, refractor, recurse
+												sys.stderr.write( "The type '" + obtyped + "' in " + item + "'s ObjectDoc is not defined.\n" )
+												sys.exit( 1 )
+								else:
+									for typed in ch_detail.typed:
+										if type(typed).__name__ == 'ObjectDoc':
+											pass
+										elif type( typed ).__name__ == 'CallbackDoc':
+											for cbtyped in typed.params:
+												for cbtyped in typed.typed:
+													if cbtyped not in types_list:
+														sys.stderr.write( "The type '" + cbtyped + "' in " + item + "'s CallbackDoc is not defined.\n" )
+														sys.exit( 1 )
+										elif typed not in types_list:
+											print(typed)
+											sys.stderr.write( "'" + typed + "' in " +  item + "'s documentation (" + ch + ") is not defined.\n" )
+											sys.exit( 1 )
+									
+									
 def report( variant , docs ):
 	"dump it in a layout"
 	data = {}
@@ -762,15 +842,17 @@ def report( variant , docs ):
 							counter += 1;
 		print( code )
 	elif variant == 'markdown':
+		lines = ''
 		for class_name, class_details in docs['classes'].items( ):
 			if data.has_key( class_name ):
-				print( "\n\n\n\n#" + class_name + "\n" )
+				lines += "\n\n\n\n#" + class_name + "\n\n"
 				for type_doc, type_details in class_details.items( ):
 					if type_doc != 'base' and len( type_details.keys( ) ) > 0:
-						print( "\n\n\n## " + type_doc + "\n" )
+						lines += "\n\n\n## " + type_doc + "\n\n"
 						for item, item_details in type_details.items( ):
-							print( "\n\n### " + item + "\n" )
-							item_details.to_markdown( )
+							lines += "\n\n### " + item + "\n\n"
+							lines += item_details.to_markdown( )
+		print(lines)
 
 def process_dir_recurse( dir_name ):
 	"""
@@ -811,15 +893,9 @@ def main( ):
 	else:
 		usage( )
 
-
-NamespaceDoc( 'global', 'Javascript Global namespace.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Strings', 'Javascript strings type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'ArrayBuffer', 'Javascript ArrayBuffer type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Object', 'Javascript Object type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Uint8Array', 'Javascript Uint8Array type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Number', 'Javascript Number type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Array', 'Javascript Array type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Math', 'Javascript Math namespace.', NO_Sees, NO_Examples )
+GlobalClasses = ['global', 'ArrayBuffer', 'Object', 'Number', 'Uint8Array', 'Array', 'Strings', 'Math']
+for k in GlobalClasses:
+	NamespaceDoc( k, 'Javascript ' + k + ' namespace.', NO_Sees, NO_Examples )
 
 if __name__ == '__main__':
 	main( )
