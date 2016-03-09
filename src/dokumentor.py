@@ -833,16 +833,6 @@ def SplitDocs(list_of, cls):
 		raise TypeError("Expected a string to generate a list of class: '" + cls.__name__ + "'")
 	return list_of
 
-
-def SeesDocs(list_of=None):
-	return SplitDocs(list_of, SeeDoc)
-
-def OopDocs(list_of=None):
-	return SplitDocs(list_of, NamePart)
-
-def TypedDocs(list_of=None):
-	return SplitDocs(list_of, TypedPart)
-
 class ObjectDoc(BasicDoc):
 	"""
 	This handles object definitions (for instance in return types)"
@@ -905,6 +895,15 @@ class ObjectDoc(BasicDoc):
 		data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
 		return data
 
+
+def SeesDocs(list_of=None):
+	return SplitDocs(list_of, SeeDoc)
+
+def OopDocs(list_of=None):
+	return SplitDocs(list_of, NamePart)
+
+def TypedDocs(list_of=None):
+	return SplitDocs(list_of, TypedPart)
 
 def check(docs):
 	"do some checks"
@@ -1010,18 +1009,20 @@ def report(variant, docs):
 							lines += item_details.to_markdown()
 		print(lines)
 
-def process_dir_recurse(dir_name):
+def process(dir_name):
 	"""
 	Go through all the files in the dirName process the raw sourcecode
 	"""
-	for file_name in os.listdir(dir_name):
-		full_file_name = os.path.join(dir_name, file_name)
-		if not os.path.isdir(full_file_name):
-			if os.path.splitext(full_file_name)[-1] == '.py' and file_name != '.ycm_extra_conf.py':
-				#print("#Reading " + full_file_name)
-				imp.load_source('DOCC', full_file_name)
-		else:
-			process_dir_recurse(full_file_name)
+	if os.path.isfile(dir_name):
+			process(full_file_name)
+	else:
+		for file_name in os.listdir(dir_name):
+			full_file_name = os.path.join(dir_name, file_name)
+			if not os.path.isdir(full_file_name):
+				if os.path.splitext(full_file_name)[-1] == '.py' and file_name != '.ycm_extra_conf.py':
+					imp.load_source('DOCC', full_file_name)
+			else:
+				process(full_file_name)
 
 VARIANTS = ['doctest', 'markdown', 'json', 'exampletest']
 def usage():
@@ -1039,7 +1040,7 @@ def main():
 		doctest.testmod()
 	elif len(sys.argv) > 2 and cmd in VARIANTS:
 		for i in range(2, len(sys.argv)):
-			process_dir_recurse(sys.argv[i])
+			process(sys.argv[i])
 		if not sys.modules.has_key('DOCC'):
 			sys.stderr.write("No documentation found.\n")
 			sys.exit(1)
