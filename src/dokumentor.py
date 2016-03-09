@@ -11,6 +11,7 @@ This tool tries to make it easier
 import sys, os, imp, json
 
 DOC = {'classes': {}}
+TYPES = []
 
 ### some Global variables to enhance readability
 IS_Optional = True
@@ -55,9 +56,13 @@ class NamePart(DocPart):
 			raise TypeError(name + " is not a string")
 		if '|' in name:
 			raise TypeError(name + " may not have a '|'")
-		if name == '':
-			raise TypeError(name + " must have some characters")
-		self.data = name
+		if len(name.strip()) < 2:
+			raise TypeError(name + " is too short for a good name.")
+		if name.lower() in ['foo', 'bar', 'foobar']:
+			raise TypeError(name + " is not a good name.")
+		self.data = name.strip()
+		if name not in TYPES:
+			TYPES.append(name)
 
 class TypedPart(NamePart):
 	"""class for type documentation
@@ -75,7 +80,9 @@ class TypedPart(NamePart):
 			raise TypeError(name + " is not a string")
 		if '|' in name:
 			raise TypeError(name + " may not have a '|'")
-		self.data = name
+		if len(name.strip()) < 2:
+			raise TypeError(name + " is too short for a good name.")
+		self.data = name.strip()
 	def is_normal_type(self, types):
 		return self.data in types
 
@@ -89,11 +96,9 @@ class DescriptionPart(DocPart):
 		"""
 		if not isinstance(description, str):
 			raise TypeError(description + " is not a string")
-		if '|' in description:
-			raise TypeError(description + " may not have a '|'")
-		if len(description) < 2:
-			raise TypeError(description + " is too short")
-		self.data = self.dotstr(description)
+		if len(description.strip()) < 3:
+			raise TypeError(description + " is too short for a good description.")
+		self.data = self.dotstr(description.strip())
 	@staticmethod
 	def dotstr(text):
 		""" Asure that the text is starting with a captial and ending with a '.'
@@ -140,9 +145,9 @@ class LanguagePart(DocPart):
 		"""
 		if not isinstance(value, str):
 			raise TypeError(value + " is not a string")
-		elif value.strip() not in ['javascript', 'python', 'c', 'c++', 'glgs', 'redcode']:
+		elif value.strip().lower() not in ['javascript', 'python', 'c', 'c++', 'gl', 'redcode']:
 			raise TypeError(value + " is not an allowed languague")
-		self.data = value.strip()
+		self.data = value.strip().lower()
 
 class CodePart(DocPart):
 	def __init__(self, code):
@@ -215,7 +220,7 @@ class BasicDoc(object):
 		['he']
 
 		>>> dummy.splittype(None)
-
+		[]
 		>>> dummy.splittype("h|e")
 		['h', 'e']
 		>>> dummy.splittype('h|e', "-")
@@ -225,7 +230,7 @@ class BasicDoc(object):
 		['h', 'e']
 		"""
 		if typed is None:
-			return typed
+			return []
 		elif type(typed).__name__ == 'str':
 			if sep in typed:
 				typed = typed.split(sep)
@@ -456,8 +461,8 @@ class FunctionDoc(DetailDoc):
 		self.is_slow = BoolPart(is_slow)
 		if params is None:
 			params = []
-		self.params = self.assure_list_of_type(params, "params", ParamDoc)
 		self.returns = returns
+		self.params = self.assure_list_of_type(params, "params", ParamDoc)
 	def to_markdown(self):
 		"""Output prepared for copy and pasting to nidiums backoffice website"""
 		lines = super(FunctionDoc, self).to_markdown()
@@ -468,10 +473,8 @@ class FunctionDoc(DetailDoc):
 		lines += "__Constructor__:" + self.is_constructor.get() + "\n"
 		if self.is_slow.value():
 			lines += ">**Warning:**\n>as `" + self.name.get() + "` is a synchronous method, it will block nidium and the UI until the reading process is complete"
-		if len(self.returns) > 0:
-			lines += "\n__Returns__:" + "\n"
-			for ret in self.returns:
-				lines += ret.to_markdown()
+		if self.returns:
+			lines += "\n__Returns__:" + self.returns.to_markdown() + "\n"
 		return lines
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
@@ -481,9 +484,10 @@ class FunctionDoc(DetailDoc):
 		data['params'] = []
 		for param in self.params:
 			data['params'].append(param.to_dict())
-		data['returns'] = []
-		for ret in self.returns:
-			data['returns'].append(ret.to_dict())
+		if self.returns:
+			data['returns'] = self.returns.to_dict()
+		else:
+			data['returns'] = None
 		return data
 
 class ConstructorDoc(FunctionDoc):
@@ -538,7 +542,10 @@ class FieldDoc(DetailDoc):
 		super(self.__class__, self).__init__(name, description, sees, examples, is_static, is_public)
 		self.is_readonly = BoolPart(is_readonly)
 		self.default = DefaultPart(default)
-		self.typed = TypedDocs(typed)
+		if type(typed).__name__ == 'ObjectDoc':
+			self.typed = [typed]
+		else:
+			self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ""
@@ -587,7 +594,10 @@ class ReturnDoc(TechnicalDoc):
 		'Animal'
 """
 		super(self.__class__, self).__init__("returnVariable", description)
-		self.typed = TypedDocs(typed)
+		if type(typed).__name__ == 'ObjectDoc':
+			self.typed = [typed]
+		else:
+			self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ""
@@ -645,9 +655,12 @@ class ParamDoc(TechnicalDoc):
 		True
 		"""
 		super(ParamDoc, self).__init__(name, description)
-		self.typed = TypedDocs(typed)
 		self.default = DefaultPart(default)
 		self.is_optional = BoolPart(is_optional)
+		if type(typed).__name__ == 'ObjectDoc':
+			self.typed = [typed]
+		else:
+			self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ''
@@ -828,7 +841,10 @@ def SplitDocs(list_of, cls):
 		list_of = BasicDoc.splittype(list_of)
 	if isinstance(list_of, list):
 		for i, item in enumerate(list_of):
-			list_of[i] = cls(item)
+			#if type(item).__name__ == 'ObjectDoc':
+			#	list_of[i] = item
+			#else:
+				list_of[i] = cls(item)
 	else:
 		raise TypeError("Expected a string to generate a list of class: '" + cls.__name__ + "'")
 	return list_of
@@ -861,7 +877,10 @@ class ObjectDoc(BasicDoc):
 		for name, description, typed in obj:
 			name = NamePart(name)
 			description = DescriptionPart(description)
-			typed = TypedDocs(typed)
+			if type(typed).__name__ == 'ObjectDoc':
+				typed = [typed]
+			else:
+				typed = TypedDocs(typed)
 			self.data.append((name, description, typed))
 	def to_markdown(self):
 		"""Output prepared for in markdown format."""
@@ -895,7 +914,6 @@ class ObjectDoc(BasicDoc):
 		data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
 		return data
 
-
 def SeesDocs(list_of=None):
 	return SplitDocs(list_of, SeeDoc)
 
@@ -906,6 +924,9 @@ def TypedDocs(list_of=None):
 	return SplitDocs(list_of, TypedPart)
 
 def check(docs):
+	print(TYPES)
+
+def check_old(docs):
 	"do some checks"
 	#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
 	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'ArrayBuffer', 'Uint16Array', 'Array',
@@ -1014,7 +1035,7 @@ def process(dir_name):
 	Go through all the files in the dirName process the raw sourcecode
 	"""
 	if os.path.isfile(dir_name):
-			process(full_file_name)
+		imp.load_source('DOCC', dir_name)
 	else:
 		for file_name in os.listdir(dir_name):
 			full_file_name = os.path.join(dir_name, file_name)
@@ -1045,7 +1066,7 @@ def main():
 			sys.stderr.write("No documentation found.\n")
 			sys.exit(1)
 		docs = sys.modules['DOCC'].DOC
-		check(docs)
+		#check_old(docs)
 		report(cmd, docs)
 	else:
 		usage()
