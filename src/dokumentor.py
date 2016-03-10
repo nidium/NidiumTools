@@ -24,6 +24,8 @@ IS_Slow = True
 IS_Fast = not IS_Slow
 IS_Readonly = True
 IS_ReadWrite = not IS_Readonly
+IS_Array = True
+IS_Single = not IS_Array
 NO_Sees = None
 NO_Examples = None
 NO_Inherrits = None
@@ -76,13 +78,16 @@ class TypedPart(NamePart):
 	"""
 	def __init__(self, name):
 		#todo: understand super()
-		if not isinstance(name, str):
+		if isinstance(name, ObjectDoc):
+			self.data = name
+		elif isinstance(name, str):
+			self.data = name.strip()
+			if '|' in self.data:
+				raise TypeError(name + " may not have a '|'")
+			elif len(self.data) < 2:
+				raise TypeError(name + " is too short for a good name.")
+		else:
 			raise TypeError(name + " is not a string")
-		if '|' in name:
-			raise TypeError(name + " may not have a '|'")
-		if len(name.strip()) < 2:
-			raise TypeError(name + " is too short for a good name.")
-		self.data = name.strip()
 	def is_normal_type(self, types):
 		return self.data in types
 
@@ -208,7 +213,8 @@ class BasicDoc(object):
 			raise TypeError(variable_name.title() + "'s variable should be a list")
 		for i in list_of:
 			if type(i) != cls:
-				raise TypeError(variable_name.title() +"'s variable should be of type ". cls.__name__)
+				if cls.__name__ == 'ParamDoc' and type(i).__name__ != 'CallbackDoc':
+					raise TypeError(variable_name.title() + "'s variable should be of type " + cls.__name__)
 		return list_of
 	@staticmethod
 	def splittype(typed, sep='|'):
@@ -419,10 +425,10 @@ class ClassDoc(DetailDoc):
 		data = super(self.__class__, self).to_dict()
 		data['inherrits'] = []
 		for inh in self.inherrits:
-			data['inherrits'].append(inh)
+			data['inherrits'].append(inh.get())
 		data['extends'] = []
 		for ext in self.extends:
-			data['extends'].append(ext)
+			data['extends'].append(ext.get())
 		return data
 
 class FunctionDoc(DetailDoc):
@@ -542,10 +548,7 @@ class FieldDoc(DetailDoc):
 		super(self.__class__, self).__init__(name, description, sees, examples, is_static, is_public)
 		self.is_readonly = BoolPart(is_readonly)
 		self.default = DefaultPart(default)
-		if type(typed).__name__ == 'ObjectDoc':
-			self.typed = [typed]
-		else:
-			self.typed = TypedDocs(typed)
+		self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ""
@@ -566,7 +569,7 @@ class FieldDoc(DetailDoc):
 			if type(typed).__name__ == 'ObjectDoc':
 				data['typed'].append(typed.to_dict())
 			else:
-				data['typed'].append(typed)
+				data['typed'].append(typed.get())
 		return data
 
 class ReturnDoc(TechnicalDoc):
@@ -594,10 +597,7 @@ class ReturnDoc(TechnicalDoc):
 		'Animal'
 """
 		super(self.__class__, self).__init__("returnVariable", description)
-		if type(typed).__name__ == 'ObjectDoc':
-			self.typed = [typed]
-		else:
-			self.typed = TypedDocs(typed)
+		self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ""
@@ -606,7 +606,7 @@ class ReturnDoc(TechnicalDoc):
 			if type(typed).__name__ == 'ObjectDoc':
 				types.append(typed.to_markdown())
 			else:
-				types.append(typed)
+				types.append(typed.get())
 		lines += "'" +  "', '".join(types) + "'\t" + self.description.get()
 		return lines
 	def to_dict(self):
@@ -617,7 +617,7 @@ class ReturnDoc(TechnicalDoc):
 			if type(typed).__name__ == 'ObjectDoc':
 				data['typed'].append(typed.to_dict())
 			else:
-				data['typed'].append(typed)
+				data['typed'].append(typed.get())
 		return data
 
 class ParamDoc(TechnicalDoc):
@@ -657,19 +657,16 @@ class ParamDoc(TechnicalDoc):
 		super(ParamDoc, self).__init__(name, description)
 		self.default = DefaultPart(default)
 		self.is_optional = BoolPart(is_optional)
-		if type(typed).__name__ == 'ObjectDoc':
-			self.typed = [typed]
-		else:
-			self.typed = TypedDocs(typed)
+		self.typed = TypedDocs(typed)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
 		lines = ''
 		types = []
 		for typed in self.typed:
 			if type(typed).__name__ == 'ObjectDoc':
-				typed.append(typed.to_markdown())
+				types.append(typed.to_markdown())
 			else:
-				types.append(typed)
+				types.append(typed.get())
 		lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_optional.get() + "\t" + self.description.get()
 		return lines
 	def to_dict(self):
@@ -680,7 +677,7 @@ class ParamDoc(TechnicalDoc):
 			if type(typed).__name__ == 'ObjectDoc':
 				data['typed'].append(typed.to_dict())
 			else:
-				data['typed'].append(typed)
+				data['typed'].append(typed.get())
 		data['default'] = self.default.get()
 		data['is_optional'] = self.is_optional.get()
 		return data
@@ -708,7 +705,6 @@ class EventDoc(FunctionDoc):
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(self.__class__, self).to_dict()
-		print(data)
 		return data
 
 class CallbackDoc(ParamDoc):
@@ -745,18 +741,18 @@ class CallbackDoc(ParamDoc):
 		lines = ''
 		extra = ""
 		for param in self.params:
+			types = []
 			if isinstance(param.typed, list):
-				typed = []
 				for tpy in param.typed:
 					if type(tpy).__name__ == 'ObjectDoc':
-						typed.append(tpy.to_markdown)
+						types.append(tpy.to_markdown())
 					else:
-						typed.append(tpy)
-			elif type(param.typed).__name__ == 'ObjectDoc':
-				typed = [param.typed.to_markdown()]
+						types.append(tpy.get())
+			elif type(param.types).__name__ == 'ObjectDoc':
+				types = [param.typed.to_markdown()]
 			else:
-				typed = param.typed
-			extra += param.name + "\t'" + "', '".join(typed) + "'\t" + param.is_optional.get() + "\t" + param.description.get() + "\n"
+				types = [param.typed.get()]
+			extra += param.name.get() + "\t'" + "', '".join(types) + "'\t" + param.is_optional.get() + "\t" + param.description.get() + "\n"
 		lines += self.name.get() + "\t" + "'callback'" + "\t" + self.is_optional.get() + "\t" + self.description.get() + extra
 		return lines
 	def to_dict(self):
@@ -841,10 +837,7 @@ def SplitDocs(list_of, cls):
 		list_of = BasicDoc.splittype(list_of)
 	if isinstance(list_of, list):
 		for i, item in enumerate(list_of):
-			#if type(item).__name__ == 'ObjectDoc':
-			#	list_of[i] = item
-			#else:
-				list_of[i] = cls(item)
+			list_of[i] = cls(item)
 	else:
 		raise TypeError("Expected a string to generate a list of class: '" + cls.__name__ + "'")
 	return list_of
@@ -853,7 +846,7 @@ class ObjectDoc(BasicDoc):
 	"""
 	This handles object definitions (for instance in return types)"
 	"""
-	def __init__(self, obj):
+	def __init__(self, obj, is_array=IS_Single):
 		"""
 		>>> a = ObjectDoc([])
 		>>> a.data
@@ -865,22 +858,25 @@ class ObjectDoc(BasicDoc):
 		'Text.'
 		>>> a.data[0][2][0].get()
 		'integer'
+		>>> a.is_array
+		False
 		>>> a.to_markdown()
 		'[key: Text. (integer)]'
 		>>> a.to_dict()
 		{'type': 'Object', 'name': 'JS Object', 'details': [{'typed': ['integer'], 'name': 'key', 'description': 'Text.'}]}
+		>>> a = ObjectDoc([("key", "text", 'integer')], IS_Array)
+		>>> a.is_array
+		True
 		"""
 		#todo automatically [] if it is not a list
 		super(self.__class__, self).__init__()
 		self.sees = self.assure_list_of_type(obj, "Object", tuple)
 		self.data = []
+		self.is_array = is_array
 		for name, description, typed in obj:
 			name = NamePart(name)
 			description = DescriptionPart(description)
-			if type(typed).__name__ == 'ObjectDoc':
-				typed = [typed]
-			else:
-				typed = TypedDocs(typed)
+			typed = TypedDocs(typed)
 			self.data.append((name, description, typed))
 	def to_markdown(self):
 		"""Output prepared for in markdown format."""
@@ -897,6 +893,8 @@ class ObjectDoc(BasicDoc):
 					types.append(tpy.get())
 			data.append(name.get() + ": " + description.get() + " (" + ",".join(types) + ")")
 		lines += "[" + ", ".join(data) + "]"
+		if self.is_array:
+			lines = "[" + lines + "]"
 		return lines
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
@@ -912,6 +910,8 @@ class ObjectDoc(BasicDoc):
 					types.append(tpy.get())
 			details.append({'name': name.get(), 'description': description.get(), 'typed': types})
 		data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
+		if self.is_array:
+			data = [data]
 		return data
 
 def SeesDocs(list_of=None):
@@ -921,6 +921,8 @@ def OopDocs(list_of=None):
 	return SplitDocs(list_of, NamePart)
 
 def TypedDocs(list_of=None):
+	if type(list_of).__name__ == 'ObjectDoc':
+		return [list_of]
 	return SplitDocs(list_of, TypedPart)
 
 def check(docs):
@@ -979,7 +981,6 @@ def check_old(docs):
 														sys.stderr.write("The type '" + cbtyped + "' in " + item + "'s CallbackDoc is not defined.\n")
 														sys.exit(1)
 										elif typed not in types_list:
-											print(typed)
 											sys.stderr.write("'" + typed + "' in " +  item + "'s documentation (" + ch + ") is not defined.\n")
 											sys.exit(1)
 
