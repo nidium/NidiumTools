@@ -10,8 +10,7 @@ This tool tries to make it easier
 """
 import sys, os, imp, json
 
-DOC = {'classes': {}}
-TYPES = []
+DOC = {'classes': {}, 'unknown_types': []}
 
 ### some Global variables to enhance readability
 IS_Optional = True
@@ -63,18 +62,12 @@ class NamePart(DocPart):
 		if name.lower() in ['foo', 'bar', 'foobar']:
 			raise TypeError(name + " is not a good name.")
 		self.data = name.strip()
-		if name not in TYPES:
-			TYPES.append(name)
 
 class TypedPart(NamePart):
 	"""class for type documentation
 	>>> a = TypedPart("string")
 	>>> a.get()
 	'string'
-	>>> a.is_normal_type(["char"])
-	False
-	>>> a.is_normal_type(["string"])
-	True
 	"""
 	def __init__(self, name):
 		#todo: understand super()
@@ -88,8 +81,19 @@ class TypedPart(NamePart):
 				raise TypeError(name + " is too short for a good name.")
 		else:
 			raise TypeError(name + " is not a string")
-	def is_normal_type(self, types):
-		return self.data in types
+	@staticmethod
+	def register_name(name):
+		if name != '' and name not in DOC['unknown_types']:
+			if True and name == 'NDMElementType':
+				raise ValueError("unknown type: '" + name + "'")
+			DOC['unknown_types'].append(name)
+	@staticmethod
+	def register_name_part(full_name):
+		list_of = BasicDoc.splittype(full_name, '.')
+		name = ''
+		for i, n in enumerate(list_of[:-1]):
+			TypedPart.register_name(".".join(list_of[:i]))
+
 
 class DescriptionPart(DocPart):
 	"Class for description documentation"
@@ -260,6 +264,7 @@ class TechnicalDoc(BasicDoc):
 		self.description = DescriptionPart(description)
 		typed = type(self).__name__
 		class_name = self.name.get()
+		#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
 		if typed == 'NamespaceDoc' or typed == 'ClassDoc':
 			pass
 		elif '.' in self.name.get():
@@ -368,6 +373,7 @@ class NamespaceDoc(DetailDoc):
 		True
 		"""
 		super(self.__class__, self).__init__(name, description, sees, examples, True, True)
+		TypedPart.register_name(self.name.get())
 	def to_markdown(self):
 		"""Output prepared for copy and pasting to nidiums backoffice website"""
 		return super(NamespaceDoc, self).to_markdown()
@@ -408,6 +414,7 @@ class ClassDoc(DetailDoc):
 			extends = []
 		self.inherrits = OopDocs(inherrits)
 		self.extends = OopDocs(extends)
+		TypedPart.register_name(self.name.get())
 	def to_markdown(self):
 		"""Output prepared for copy and pasting to nidiums backoffice website"""
 		lines = super(self.__class__, self).to_markdown()
@@ -515,6 +522,7 @@ class ConstructorDoc(FunctionDoc):
 		"""
 		super(self.__class__, self).__init__(name, description, sees, examples, True, True, False, params, returns)
 		self.is_constructor = BoolPart(True)
+		TypedPart.register_name_part(self.name.get())
 	def to_markdown(self):
 		"""Output prepared for in markdown format."""
 		return super(self.__class__, self).to_markdown()
@@ -810,6 +818,7 @@ class SeeDoc(BasicDoc):
 			raise TypeError("SeeDoc may not have a '|'. 'SeesDocs' to for your convienience.")
 		super(self.__class__, self).__init__()
 		self.data = NamePart(see)
+		TypedPart.register_name_part(self.data.get())
 	def to_markdown(self):
 		"""Output prepared for in markdown format."""
 		return "__" + self.data.get() + "__"
@@ -918,71 +927,32 @@ def SeesDocs(list_of=None):
 	return SplitDocs(list_of, SeeDoc)
 
 def OopDocs(list_of=None):
-	return SplitDocs(list_of, NamePart)
+	list_of = SplitDocs(list_of, NamePart)
+	for i in list_of:
+		TypedPart.register_name(i.get())
+	return list_of
 
 def TypedDocs(list_of=None):
 	if type(list_of).__name__ == 'ObjectDoc':
 		return [list_of]
-	return SplitDocs(list_of, TypedPart)
+	list_of = SplitDocs(list_of, TypedPart)
+	for i in list_of:
+		TypedPart.register_name(i.get())
+	return list_of
 
 def check(docs):
-	print(TYPES)
-
-def check_old(docs):
-	"do some checks"
-	#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'ArrayBuffer', 'Uint16Array', 'Array',
-				  'function',	 #todo: get rid of this; only allow CallbackDoc
-				  'JS Object', #'?', 'object', #todo, get rid of these; only allow ObjectDoc
-				  'SocketClient', 'Canvas', 'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
-				]
-	for typed in list(types_list):
-		types_list.append("[" + typed + "]")
-	items_list = []
-	for class_name, class_details in docs['classes'].items():
-		types_list.append(class_name)
-		types_list.append("[" + class_name + "]")
-		items_list.append(class_name)
-		for type_details in class_details.values():
-			for item, item_details in type_details.items():
-				items_list.append(item)
-	for class_name, class_details in docs['classes'].items():
-		for chapter, type_details in class_details.items():
-			if chapter == 'base':
-				if type(type_details[class_name]) == type(dict()):
-					sys.stderr.write("Class/Namespace '" + class_name + "' is not defined.\n")
-					sys.exit(1)
-			for item, item_details in type_details.items():
-				chapters = [#'sees',
-					'inherrits', 'extends', 'constructors', 'returns', 'events', 'params', 'properties']
-				for ch in chapters:
-					if hasattr(item_details, ch):
-						ch_details = getattr(item_details, ch)
-						for ch_detail in ch_details:
-							if hasattr(ch_detail, "typed"):
-								if type(getattr(ch_detail, "typed")).__name__ == 'ObjectDoc':
-									for name_description_typed in ch_detail.typed.data:
-										typed = name_description_typed[2]
-										if not isinstance(typed, list):
-											typed = [typed]
-										for obtyped in typed:
-											if type(obtyped).__name__ != 'ObjectDoc' and obtyped not in types_list:
-												#todo, refractor, recurse
-												sys.stderr.write("The type '" + obtyped + "' in " + item + "'s ObjectDoc is not defined.\n")
-												sys.exit(1)
-								else:
-									for typed in ch_detail.typed:
-										if type(typed).__name__ == 'ObjectDoc':
-											pass
-										elif type(typed).__name__ == 'CallbackDoc':
-											for cbtyped in typed.params:
-												for cbtyped in typed.typed:
-													if cbtyped not in types_list:
-														sys.stderr.write("The type '" + cbtyped + "' in " + item + "'s CallbackDoc is not defined.\n")
-														sys.exit(1)
-										elif typed not in types_list:
-											sys.stderr.write("'" + typed + "' in " +  item + "'s documentation (" + ch + ") is not defined.\n")
-											sys.exit(1)
+	defined_types = []
+	for known in docs['classes'].keys():
+		defined_types.append(known)
+		defined_types.append("[" + known + "]")
+	for known in IGNORE_TYPES:
+		defined_types.append(known)
+		defined_types.append("[" + known + "]")
+	missing = []
+	for i in docs['unknown_types']:
+		if i not in defined_types:
+			missing.append(i)
+	return missing
 
 def report(variant, docs):
 	"dump it in a layout"
@@ -993,30 +963,32 @@ def report(variant, docs):
 		for type_doc, type_details in class_details.items():
 			data[class_name][type_doc] = {}
 			for item, item_details in type_details.items():
-				data[class_name][type_doc][item] = item_details.to_dict()
+				if isinstance(item_details, dict):
+					data[class_name][type_doc][item] = item_details
+				else:
+					data[class_name][type_doc][item] = item_details.to_dict()
 				if type_doc != 'base':
 					count += len(data[class_name][type_doc].keys())
-		if count == 0 and class_name != 'global':
-			del data[class_name]
 	if variant == 'json':
 		print(json.dumps(data))
 	elif variant == 'exampletest':
 		code = ''
 		counter = 0
 		for class_name, class_details in data.items():
+			code += "Tests.register('Running tests for %s', function() {});\n" % class_name
 			for type_doc, type_details in class_details.items():
 				for item, item_details in type_details.items():
-					for i, example in enumerate(item_details['examples']):
-						if example['language'] == 'javascript':
-							name = class_name + '.' + type_doc + "." + item + "." + str(i)
-							examplecode = "\n\t\t".join(example['data'].splitlines())
-#							examplecode = "\n\ttry {\n\t\t" + examplecode + "\n\t} catch(err) {\n\t\tconsole.log('Syntax error in example code; Go fix `" + name + "`!' + err.message);\n\t}"
-							code += '\nTests.register("' + name + '", function() {'
-							code += "\n\tvar dummy = " + str(counter) + ';'
-							code += "\n\t\t" + examplecode
-							code += "\n\n\tAssert.equal(dummy, " +str(counter) +');'
-							code += '\n});\n'
-							counter += 1
+					if item_details.has_key('examples'):
+						for i, example in enumerate(item_details['examples']):
+							if example['language'] == 'javascript':
+								name = class_name + '.' + type_doc + "." + item + "." + str(i)
+								examplecode = "\n\t\t".join(example['data'].splitlines())
+								code += '\nTests.register("' + name + '", function() {'
+								code += "\n\tvar dummy = " + str(counter) + ';'
+								code += "\n\t\t" + examplecode
+								code += "\n\n\tAssert.equal(dummy, " + str(counter) + ');'
+								code += '\n});\n'
+								counter += 1
 		print(code)
 	elif variant == 'markdown':
 		lines = ''
@@ -1067,14 +1039,13 @@ def main():
 			sys.stderr.write("No documentation found.\n")
 			sys.exit(1)
 		docs = sys.modules['DOCC'].DOC
-		#check_old(docs)
 		report(cmd, docs)
+		missing = check(docs)
+		if len(missing) > 0:
+			sys.stderr.write("\nWarning: missing types: '" + "', '".join(missing) + "'\n")
 	else:
 		usage()
-
-GLOBAL_CLASSES = ['global', 'ArrayBuffer', 'Object', 'Number', 'Uint8Array', 'Array', 'Strings', 'Math']
-for k in GLOBAL_CLASSES:
-	NamespaceDoc(k, 'Javascript ' + k + ' namespace.', NO_Sees, NO_Examples)
+IGNORE_TYPES = ['null', 'integer', 'string', 'boolean', 'float', 'mixed', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
 
 if __name__ == '__main__':
 	main()
