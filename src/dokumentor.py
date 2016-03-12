@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/python
 """
 Tool to generate documentation in a different way then JSDoc does
 
@@ -10,9 +10,9 @@ This tool tries to make it easier
 """
 import sys, os, imp, json
 
-DOC = { 'classes': { } }
+DOC = {'classes': {}, 'unknown_types': []}
 
-#some Global variables to enhance readability
+### some Global variables to enhance readability
 IS_Optional = True
 IS_Obligated = not IS_Optional
 IS_Static = True
@@ -23,6 +23,8 @@ IS_Slow = True
 IS_Fast = not IS_Slow
 IS_Readonly = True
 IS_ReadWrite = not IS_Readonly
+IS_Array = True
+IS_Single = not IS_Array
 NO_Sees = None
 NO_Examples = None
 NO_Inherrits = None
@@ -32,147 +34,242 @@ NO_Returns = None
 NO_Default = None
 NO_Typed = None
 
-def boolstr( val ):
-	"""true if so, etc.
-	>>> boolstr( True)
-	'true'
+### PART ###
 
-	>>> boolstr( False )
-	'false'
-	"""
-	if val:
-		return 'true'
-	return 'false'
+class DocPart():
+	"Root class for transformations"
+	def __init__(self):
+		self.data = None
+	def __str__(self):
+		return self.data
+	def get(self):
+		return self.__str__()
 
-def dotstr( text ):
-	"""
-	Asure that the text is ending with a '.'
-	>>> dotstr( "a" )
-	'a.'
-
-	>>> dotstr( "a." )
-	'a.'
-
-	>>> dotstr( "" )
-	''
-	
-	"""
-	if len( text ) > 0 and text[-1] != '.':
-		text += '.'
-	return text
-
-def splittype( typed ):
-	"""splits a string nto a list, eventually by using a '|'
-	>>> splittype( 'he' )
-	['he']
-
-	>>> splittype( None )
-
-	>>> splittype( "h|e" )
-	['h', 'e']
-	"""
-	if typed is None:
-		return typed
-	elif type( typed ).__name__ == 'str':
-		if '|' in typed:
-			typed = typed.split( '|' )
-		else:
-			typed = [ typed ]
-	return typed
-
-def check_type( var, var_name, base_type ):
-	"""
-	Wrapper for isinstance that throws an error message
-	>>> check_type( 1, "h", int )
-	>>> check_type( 1, "h", str )
-	Traceback (most recent call last):
-	 ...
-	TypeError: h: str expected, got: int
-	"""
-	rok = True
-	if not isinstance( var, base_type ):
-		rok = False
-		if base_type.__name__ == 'ParamDoc':
-			if type( var ).__name__ == 'CallbackDoc':
-				rok = True
-	if not rok:
-		raise TypeError( var_name + ": " + base_type.__name__ + " expected, got: " + type( var ).__name__ )
-
-def check_list_type( list_name, var_name, base_class_type ):
-	"""
-	Forces the variable into a ( empty ) list. If it was a list, all items must be of the correct type.
-
-	>>> a = [1, 2 ]
-	>>> b = check_list_type( a, "i", int )
-	>>> a == b
-	True
-	
-	>>> b = check_list_type( None, "i", int )
-	>>> b == []
-	True
-	
-	>>> c = check_list_type( [], "i", int )
-	>>> c == []
-	True
-	
-	>>> d = check_list_type( 1, "i", int )
-	>>> d[0] == 1
-	True
-	
-	>>> e = check_list_type( ['', 1] , "i", int )
-	Traceback (most recent call last):
-	 ...
-	TypeError: i: int expected, got: str
-	"""
-	if list_name is None:
-		list_name = []
-	elif isinstance( list_name, base_class_type ):
-		list_name = [ list_name ]
-	else:
-		check_type( list_name, var_name, list )
-		for item in list_name:
-			check_type( item, var_name, base_class_type )
-	return list_name
-
-class BasicDoc( object ):
-	"""
-	An abstract class, that can spit out the formatted documentation
-	"""
-	def __init__( self ):
+class NamePart(DocPart):
+	"Class for name documentation"
+	def __init__(self, name):
+		"""Assure that the name is a string
+		>>> a = NamePart("test")
+		>>> a.get()
+		'test'
 		"""
-		>>> a = BasicDoc( )
-		>>> type( a )
+		if not isinstance(name, str):
+			raise TypeError(name + " is not a string")
+		if '|' in name:
+			raise TypeError(name + " may not have a '|'")
+		if len(name.strip()) < 2:
+			raise TypeError(name + " is too short for a good name.")
+		if name.lower() in ['foo', 'bar', 'foobar']:
+			raise TypeError(name + " is not a good name.")
+		self.data = name.strip()
+
+class TypedPart(NamePart):
+	"""class for type documentation
+	>>> a = TypedPart("string")
+	>>> a.get()
+	'string'
+	"""
+	def __init__(self, name):
+		#todo: understand super()
+		if isinstance(name, ObjectDoc):
+			self.data = name
+		elif isinstance(name, str):
+			self.data = name.strip()
+			if '|' in self.data:
+				raise TypeError(name + " may not have a '|'")
+			elif len(self.data) < 2:
+				raise TypeError(name + " is too short for a good name.")
+		else:
+			raise TypeError(name + " is not a string")
+	@staticmethod
+	def register_name(name):
+		if name != '' and name not in DOC['unknown_types']:
+			if True and name == 'NDMElementType':
+				raise ValueError("unknown type: '" + name + "'")
+			DOC['unknown_types'].append(name)
+	@staticmethod
+	def register_name_part(full_name):
+		list_of = BasicDoc.splittype(full_name, '.')
+		name = ''
+		for i, n in enumerate(list_of[:-1]):
+			TypedPart.register_name(".".join(list_of[:i]))
+
+
+class DescriptionPart(DocPart):
+	"Class for description documentation"
+	def __init__(self, description):
+		"""Assure that the description is a string"
+		>>> a = DescriptionPart("test")
+		>>> print(a)
+		Test.
+		"""
+		if not isinstance(description, str):
+			raise TypeError(description + " is not a string")
+		if len(description.strip()) < 3:
+			raise TypeError(description + " is too short for a good description.")
+		self.data = self.dotstr(description.strip())
+	@staticmethod
+	def dotstr(text):
+		""" Asure that the text is starting with a captial and ending with a '.'
+		>>> DescriptionPart.dotstr("a")
+		'A.'
+		>>> DescriptionPart.dotstr("a.")
+		'A.'
+		>>> DescriptionPart.dotstr("")
+		''
+		"""
+		if isinstance(text, str):
+			text = text.title()
+			if len(text) > 0 and text[-1] != '.':
+				text += '.'
+		return text
+
+class BoolPart(DocPart):
+	def __init__(self, value):
+		"""Assure that this is a boolean.
+		>>> a = BoolPart(True)
+		>>> a.get()
+		'true'
+		>>> a = BoolPart(False)
+		>>> a.get()
+		'false'
+		"""
+		if not isinstance(value, bool):
+			raise TypeError(value + " is not a boolean")
+		self.data = value
+	def __str__(self):
+		"""true if so, etc."""
+		if self.data:
+			return 'true'
+		return 'false'
+	def value(self):
+		return self.data
+
+class LanguagePart(DocPart):
+	def __init__(self, value):
+		"""Assure that language is a string and is a valid language.
+		>>> a = LanguagePart("python")
+		>>> a.get()
+		'python'
+		"""
+		if not isinstance(value, str):
+			raise TypeError(value + " is not a string")
+		elif value.strip().lower() not in ['javascript', 'python', 'c', 'c++', 'gl', 'redcode']:
+			raise TypeError(value + " is not an allowed languague")
+		self.data = value.strip().lower()
+
+class CodePart(DocPart):
+	def __init__(self, code):
+		"""Assure that code is a string and that it is stripped of whitespace.
+		>>> a = CodePart('size_t * p; ')
+		>>> a.get()
+		'size_t * p;'
+		"""
+		if not isinstance(code, str):
+			raise TypeError(code + " is not a string")
+		self.data = code.strip()
+
+class DefaultPart(DocPart):
+	def __init__(self, value=None):
+		"""Assure that the default is None, integer, or a string
+		>>> a = DefaultPart()
+		>>> a.get()
+		'None'
+		>>> a = DefaultPart(1111)
+		>>> a.get()
+		'1111'
+		>>> a = DefaultPart('2222')
+		>>> a.get()
+		'2222'
+		"""
+		#TODO: link this default with the FieldDoc/ParamDoc type
+		if value is None or isinstance(value, int) or isinstance(value, str):
+			self.data = value
+		else:
+			raise TypeError(value + "is not of NoneType, integer, or string")
+	def __str__(self):
+		return str(self.data)
+
+### DOCS ###
+
+class BasicDoc(object):
+	"""An abstract class, that can spit out the formatted documentation."""
+	def __init__(self):
+		"""
+		>>> a = BasicDoc()
+		>>> type(a)
 		<class '__main__.BasicDoc'>
 
 		"""
 		pass
-	def to_dict( self ):
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		return {}
-
-class TechnicalDoc( BasicDoc ):
-	"""
-	An abstract class, that is just a convinient constructor and formatter
-	"""
-	def __init__( self, name, description ):
+	def assure_list_of_type(self, list_of, variable_name, cls):
+		"""Assure that the variable variable_name as parameter 'list_of' is a list of class cls
+		>>> a = BasicDoc()
+		>>> s = SeesDocs("aa|ee")
+		>>> ss =a.assure_list_of_type(s, "sees", SeeDoc)
+		>>> len(ss)
+		2
 		"""
-		>>> a = TechnicalDoc( "tech", "Tech" )
-		>>> a.name
+		if not isinstance(list_of, list):
+			raise TypeError(variable_name.title() + "'s variable should be a list")
+		for i in list_of:
+			if type(i) != cls:
+				if cls.__name__ == 'ParamDoc' and type(i).__name__ != 'CallbackDoc':
+					raise TypeError(variable_name.title() + "'s variable should be of type " + cls.__name__)
+		return list_of
+	@staticmethod
+	def splittype(typed, sep='|'):
+		"""Splits a string into a list, eventually by using a '|'
+		>>> BasicDoc.splittype('he')
+		['he']
+		>>> dummy = BasicDoc()
+		>>> dummy.splittype('he')
+		['he']
+
+		>>> dummy.splittype(None)
+		[]
+		>>> dummy.splittype("h|e")
+		['h', 'e']
+		>>> dummy.splittype('h|e', "-")
+		['h|e']
+
+		>>> dummy.splittype("h-e", "-")
+		['h', 'e']
+		"""
+		if typed is None:
+			return []
+		elif type(typed).__name__ == 'str':
+			if sep in typed:
+				typed = typed.split(sep)
+			else:
+				typed = [typed]
+		return typed
+
+
+class TechnicalDoc(BasicDoc):
+	"""An abstract class, that is just a convinient constructor and formatter."""
+	def __init__(self, name, description):
+		"""
+		>>> a = TechnicalDoc("tech", "Tech")
+		>>> a.name.get()
 		'tech'
-
-		>>> a.description
-		'Tech'
+		>>> a.description.get()
+		'Tech.'
 		"""
-		super( TechnicalDoc, self ).__init__( )
-		check_type( name, "name", str )
-		check_type( description, "description", str )
-		self.name = name
-		self.description = description
-		class_name = self.name
-		if '.' in self.name:
-			class_name = self.name[:self.name.index( '.' )]
+		super(TechnicalDoc, self).__init__()
+		self.name = NamePart(name)
+		self.description = DescriptionPart(description)
+		typed = type(self).__name__
+		class_name = self.name.get()
+		#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
+		if typed == 'NamespaceDoc' or typed == 'ClassDoc':
+			pass
+		elif '.' in self.name.get():
+			class_name = self.name.get()[:self.name.get().index('.')]
 		key = ''
-		typed = type( self ).__name__
 		add = False
 		if not class_name in DOC['classes']:
 			add = True
@@ -191,637 +288,765 @@ class TechnicalDoc( BasicDoc ):
 		elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
 			add = False
 		else:
-			raise ValueError( 'A very specific bad thing happened' )	
+			raise ValueError('A very specific bad thing happened')
 		if add:
-			DOC['classes'][class_name] = { 'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {} } }
+			DOC['classes'][class_name] = {'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {}}}
 		if key != '':
-			DOC['classes'][class_name][key][self.name] = self
-	def to_dict( self ):
+			DOC['classes'][class_name][key][self.name.get()] = self
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( TechnicalDoc, self ).to_dict( )
-		data['name'] = self.name
-		data['description'] = self.description
+		data = super(TechnicalDoc, self).to_dict()
+		data['name'] = self.name.get()
+		data['description'] = self.description.get()
 		return data
 
-class DetailDoc( TechnicalDoc ):
-	"""
-	An abstract class, that is just a convinient constructor and formatter
-	"""
+class DetailDoc(TechnicalDoc):
+	"""An abstract class, that is just a convinient constructor and formatter. """
 	#@TODO: Since, deprecated
-	def __init__( self, name, description, sees = NO_Sees, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public ):
+	def __init__(self, name, description, sees=NO_Sees, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public):
 		"""
-		>>> a = DetailDoc( "Detail", "Devil is in the detail", None, None, True, False )
-		>>> a.is_public
+		>>> a = DetailDoc("Detail", "Devil is in the detail",NO_Sees, NO_Examples, IS_Static, IS_Private)
+		>>> a.is_public.value()
 		False
 
-		>>> a.is_static
+		>>> a.is_static.value()
 		True
 		"""
-		super( DetailDoc, self ).__init__( name, description )
-		self.sees = check_list_type( sees, "sees", SeeDoc )
-		self.examples = check_list_type( examples, "examples", ExampleDoc )
-		check_type( is_public, "is_public", bool )
-		check_type( is_static, "is_static", bool )
-		self.is_public = is_public
-		self.is_static = is_static
-	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
-		print( "__" + self.name + "__\n\n" + dotstr( self.description ) + "\n" )
-		print( "__Public__: " + boolstr( self.is_public ) + "\n" )
-		print( "__Static__: " + boolstr( self.is_static ) + "\n" )
-		if len( self.sees ) > 0:
-			print( "__Sees__:" + "\n" )
+		super(DetailDoc, self).__init__(name, description)
+		if sees is None:
+			sees = []
+		if examples is None:
+			examples = []
+		self.sees = self.assure_list_of_type(sees, "see", SeeDoc)
+		self.examples = self.assure_list_of_type(examples, "examples", ExampleDoc)
+		self.is_public = BoolPart(is_public)
+		self.is_static = BoolPart(is_static)
+	def to_markdown(self):
+		"""Output prepared for copy and pasting to nidiums backoffice website"""
+		lines = ""
+		lines += "__" + self.name.get() + "__\n\n" + self.description.get() + "\n"
+		lines += "__Public__: " + self.is_public.get() + "\n"
+		lines += "__Static__: " + self.is_static.get() + "\n"
+		if len(self.sees) > 0:
+			lines += "__Sees__:" + "\n"
 			for see in self.sees:
-				if (self.name is not see.data ):
-					see.to_markdown( )
-		if len( self.examples ) > 0:
-			print( "\n__Examples__:" + "\n" )
+				if self.name.get() is not see.data:
+					lines += see.to_markdown()
+		if len(self.examples) > 0:
+			lines += "\n__Examples__:" + "\n"
 			for example in self.examples:
-				example.to_markdown( )
-		print( "\n" )
-	def to_dict( self ):
+				lines += example.to_markdown()
+		lines += "\n"
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data =  super( DetailDoc, self ).to_dict( )
-		data['is_public'] = self.is_public
-		data['is_static'] = self.is_static
+		data = super(DetailDoc, self).to_dict()
+		data['is_public'] = self.is_public.get()
+		data['is_static'] = self.is_static.get()
 		data['sees'] = []
 		data['examples'] = []
-		if len( self.sees ) > 0:
+		if len(self.sees) > 0:
 			for see in self.sees:
-				if ( self.name is not see.data ):
-					data['sees'].append( see.to_dict( ) )
-		if len( self.examples ) > 0:
+				if self.name.get() is not see.data:
+					data['sees'].append(see.to_dict())
+		if len(self.examples) > 0:
 			for example in self.examples:
-				data['examples'].append( example.to_dict( ) )
+				data['examples'].append(example.to_dict())
 		return data
 
-class NamespaceDoc( DetailDoc ):
-	"""
-	This handles 'namespaces, witch are placeholders/castrated classes
-	"""
-	def __init__( self, name, description, sees = None, examples = NO_Examples ):
+class NamespaceDoc(DetailDoc):
+	"""This handles 'namespaces, witch are placeholders/castrated classes."""
+	def __init__(self, name, description, sees=None, examples=NO_Examples):
 		"""
-		>>> a = NamespaceDoc( 'Math', 'Math namespace', NO_Sees, NO_Examples )
-		>>> type( a.examples )
+		>>> a = NamespaceDoc('Math', 'Math namespace', NO_Sees, NO_Examples)
+		>>> type(a.examples)
 		<type 'list'>
-		
-		>>> len( a.sees )
+		>>> len(a.examples)
 		0
-
-		>>> a.is_static
+		>>> type(a.sees)
+		<type 'list'>
+		>>> len(a.sees)
+		0
+		>>> a.is_static.value()
 		True
-
-		>>> a.is_public
+		>>> a.is_public.value()
 		True
 		"""
-		super( self.__class__, self ).__init__( name, description, sees, examples, True, True )
-	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( NamespaceDoc, self ).to_markdown( )
-	def to_dict( self ):
+		super(self.__class__, self).__init__(name, description, sees, examples, True, True)
+		TypedPart.register_name(self.name.get())
+	def to_markdown(self):
+		"""Output prepared for copy and pasting to nidiums backoffice website"""
+		return super(NamespaceDoc, self).to_markdown()
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
+		data = super(self.__class__, self).to_dict()
 		return data
 
-class ClassDoc( DetailDoc ):
+class ClassDoc(DetailDoc):
 	"This handles classes"
-	def __init__( self, name, description, sees = None, examples = NO_Examples, inherrits = None, extends = None ):
+	def __init__(self, name, description, sees=None, examples=NO_Examples, inherrits=None, extends=None):
 		"""
-		>>> a = ClassDoc( 'Console', 'Log interface', NO_Sees, NO_Examples, NO_Inherrits, NO_Extends )
-		>>> type( a.inherrits )
+		>>> a = ClassDoc('Console', 'Log interface', NO_Sees, NO_Examples, NO_Inherrits, NO_Extends)
+		>>> type(a.inherrits)
 		<type 'list'>
-
-		>>> len( a.extends )
+		>>> len(a.inherrits)
 		0
+		>>> type(a.extends)
+		<type 'list'>
+		>>> len(a.extends)
+		0
+		>>> a = ClassDoc('Console', 'Log interface', NO_Sees, NO_Examples, "Dummy", "Drop|Pord")
+		>>> len(a.inherrits)
+		1
+		>>> a.inherrits[0].get()
+		'Dummy'
+		>>> len(a.extends)
+		2
+		>>> a.extends[0].get()
+		'Drop'
+		>>> a.extends[1].get()
+		'Pord'
 		"""
-		super( self.__class__, self ).__init__( name, description, sees, examples, IS_Static, IS_Public )
-		self.inherrits = check_list_type( inherrits, "inherrits", str )
-		self.extends = check_list_type( extends, "extends", str )
-	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( self.__class__, self ).to_markdown( )
-		if len( self.inherrits ) > 0 :
-			print( "\n__Inherrits__:" + "\n" )
+		super(self.__class__, self).__init__(name, description, sees, examples, IS_Static, IS_Public)
+		if inherrits is None:
+			inherrits = []
+		if extends is None:
+			extends = []
+		self.inherrits = OopDocs(inherrits)
+		self.extends = OopDocs(extends)
+		TypedPart.register_name(self.name.get())
+	def to_markdown(self):
+		"""Output prepared for copy and pasting to nidiums backoffice website"""
+		lines = super(self.__class__, self).to_markdown()
+		if len(self.inherrits) > 0:
+			lines += "\n__Inherrits__:" + "\n"
 			for inherrit in self.inherrits:
-				print( inherrit )
-		if len( self.extends ) > 0 :
-			print( "\n__Extends__:" + "\n" )
+				lines += inherrit
+		if len(self.extends) > 0:
+			lines += "\n__Extends__:" + "\n"
 			for examp in self.extends:
-				print( examp )
-	def to_dict( self ):
+				lines += examp
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
+		data = super(self.__class__, self).to_dict()
 		data['inherrits'] = []
 		for inh in self.inherrits:
-			data['inherrits'].append( inh )
+			data['inherrits'].append(inh.get())
 		data['extends'] = []
 		for ext in self.extends:
-			data['extends'].append( ext )
+			data['extends'].append(ext.get())
 		return data
 
-class FunctionDoc( DetailDoc ):
+class FunctionDoc(DetailDoc):
 	"""
 	This handles functions and methods
 	"""
-	def __init__( self, name, description, sees = None, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public, is_slow = IS_Fast, params = NO_Params, returns = NO_Returns ):
+	def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_slow=IS_Fast, params=NO_Params, returns=NO_Returns):
 		"""
-		>>> a = FunctionDoc( 'console.log', 'Log shit', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, ParamDoc( 'text', 'The Text', 'string', "" ) )
-		>>> a.params[0].default
+		>>> a = FunctionDoc('console.log', 'Log shit', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, [ParamDoc('text', 'The Text', 'string', "")])
+		>>> a.params[0].default.get()
 		''
-
-		>>> type( a.returns )
-		<type 'list'>
-
-		>>> len( a.returns )
-		0
-
-		>>> a.params[0].typed
-		['string']
-
-		>>> a.is_constructor
+		>>> type(a.returns).__name__
+		'NoneType'
+		>>> len(a.params)
+		1
+		>>> len(a.params[0].typed)
+		1
+		>>> a.params[0].typed[0].get()
+		'string'
+		>>> a.is_constructor.value()
 		False
-		
-		>>> a.is_slow
+		>>> a.is_slow.value()
 		True
+		>>> a = FunctionDoc('max', 'max 2 valuest', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, [ParamDoc('v1', 'value 1', 'integer|float', "1"), ParamDoc('v2', 'value 2', 'integer|float', "1")], ReturnDoc("highest", "integer|float"))
+		>>> type(a.returns).__name__
+		'ReturnDoc'
+		>>> len(a.returns.typed)
+		2
+		>>> a.returns.typed[0].get()
+		'integer'
+		>>> a.returns.typed[1].get()
+		'float'
 		"""
-		super( FunctionDoc, self ).__init__( name, description, sees, examples, is_static, is_public )
-		self.is_constructor = False
-		self.is_slow = is_slow
-		self.params = check_list_type( params, "params", ParamDoc )
-		self.returns = check_list_type( returns, "returns", ReturnDoc )
-	def to_markdown( self ):
-		"""output prepared for copy and pasting to nidiums backoffice website"""
-		super( FunctionDoc, self ).to_markdown( )
-		if ( self.params ) > 0:
-			print( "\n__Parameters__:" + "\n"  )
+		super(FunctionDoc, self).__init__(name, description, sees, examples, is_static, is_public)
+		self.is_constructor = BoolPart(False)
+		self.is_slow = BoolPart(is_slow)
+		if params is None:
+			params = []
+		self.returns = returns
+		self.params = self.assure_list_of_type(params, "params", ParamDoc)
+	def to_markdown(self):
+		"""Output prepared for copy and pasting to nidiums backoffice website"""
+		lines = super(FunctionDoc, self).to_markdown()
+		if self.params > 0:
+			lines += "\n__Parameters__:" + "\n"
 			for param in self.params:
-				param.to_markdown( )
-		print( "__Constructor__:" + boolstr( self.is_constructor ) + "\n" )
-		if self.is_slow:
-			print( ">**Warning:**\n>as `" + self.name + "` is a synchronous method, it will block nidium and the UI until the reading process is complete" )
-		if len( self.returns ) > 0:
-			print( "\n__Returns__:" + "\n" )
-			for ret in self.returns:
-				ret.to_markdown( )
-	def to_dict( self ):
+				lines += param.to_markdown()
+		lines += "__Constructor__:" + self.is_constructor.get() + "\n"
+		if self.is_slow.value():
+			lines += ">**Warning:**\n>as `" + self.name.get() + "` is a synchronous method, it will block nidium and the UI until the reading process is complete"
+		if self.returns:
+			lines += "\n__Returns__:" + self.returns.to_markdown() + "\n"
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( FunctionDoc, self ).to_dict( )
-		data['is_constructor'] = self.is_constructor
-		data['is_slow'] = self.is_slow
+		data = super(FunctionDoc, self).to_dict()
+		data['is_constructor'] = self.is_constructor.get()
+		data['is_slow'] = self.is_slow.get()
 		data['params'] = []
 		for param in self.params:
-			data['params'].append( param.to_dict( ) )
-		data['returns'] = []
-		for ret in self.returns:
-			data['returns'].append( ret.to_dict( ) )
-		return( data )
+			data['params'].append(param.to_dict())
+		if self.returns:
+			data['returns'] = self.returns.to_dict()
+		else:
+			data['returns'] = None
+		return data
 
-class ConstructorDoc( FunctionDoc ):
+class ConstructorDoc(FunctionDoc):
 	"""
 	This handles constructors for classes. A constructor is just a function
 	"""
-	def __init__( self, name, description, sees = None, examples = NO_Examples, params = NO_Params, returns = NO_Returns ):
+	def __init__(self, name, description, sees=None, examples=NO_Examples, params=NO_Params, returns=NO_Returns):
 		"""
-		>>> a = ConstructorDoc( 'Webserver', 'Webserver constructor', NO_Sees, NO_Examples, NO_Params, ReturnDoc( 'Webserver', 'object' ) )
-		>>> a.is_constructor
+		>>> a = ConstructorDoc('Webserver', 'Webserver constructor', NO_Sees, NO_Examples, NO_Params, ReturnDoc('instance', 'Webserver'))
+		>>> a.is_constructor.value()
 		True
 
-		>>> type( a.returns )
-		<type 'list'>
-			
+		>>> type(a.returns).__name__
+		'ReturnDoc'
+		>>> len(a.returns.typed)
+		1
+		>>> a.returns.typed[0].get()
+		'Webserver'
 		"""
-		super( self.__class__, self ).__init__( name, description, sees, examples, True, True, False, params, returns )
-		self.is_constructor = True
-	def to_markdown( self ):
-		"""output prepared for in markdown format."""
-		super( self.__class__, self ).to_markdown( )
-	def to_dict( self ):
+		super(self.__class__, self).__init__(name, description, sees, examples, True, True, False, params, returns)
+		self.is_constructor = BoolPart(True)
+		TypedPart.register_name_part(self.name.get())
+	def to_markdown(self):
+		"""Output prepared for in markdown format."""
+		return super(self.__class__, self).to_markdown()
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		return super( self.__class__, self ).to_dict( )
+		return super(self.__class__, self).to_dict()
 
-class FieldDoc( DetailDoc ):
+class FieldDoc(DetailDoc):
 	"""
 	This handles fields, also known as properties
 	"""
-	def __init__( self, name, description, sees = None, examples = NO_Examples, is_static = IS_Dynamic, is_public = IS_Public, is_readonly = IS_Readonly, typed = NO_Typed, default = NO_Default ):
+	def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_readonly=IS_Readonly, typed=NO_Typed, default=NO_Default):
 		"""
-		>>> a = FieldDoc( 'age', "The persons age", NO_Sees, NO_Examples, IS_Dynamic, IS_Static, IS_Readonly, 'int', NO_Default )
-		>>> type( a )
+		>>> a = FieldDoc('age', "The persons age", NO_Sees, NO_Examples, IS_Dynamic, IS_Static, IS_Readonly, 'int', NO_Default)
+		>>> type(a)
 		<class '__main__.FieldDoc'>
-		
-		>>> a.typed
-		['int']
-		
-		>>> a.default
-		
-		>>> a.is_readonly
+		>>> len(a.typed)
+		1
+		>>> a.typed[0].get()
+		'int'
+		>>> a.default.get()
+		'None'
+		>>> a.is_readonly.value()
 		True
-		
-		>>> a = FieldDoc( 'age', "The persons age", NO_Sees, NO_Examples, IS_Dynamic, IS_Static, IS_ReadWrite, 'int', 30 )
-		>>> a.default
-		30
-		
-		>>> a.is_readonly
+		>>> a = FieldDoc('age', "The persons age", NO_Sees, NO_Examples, IS_Dynamic, IS_Static, IS_ReadWrite, 'int', 30)
+		>>> a.default.get()
+		'30'
+		>>> a.is_readonly.value()
 		False
 		"""
-		super( self.__class__, self ).__init__( name, description, sees, examples, is_static, is_public )
-		check_type( is_readonly, "is_readonly", bool )
-		self.is_readonly = is_readonly
-		if default is not None:
-			if type( default ).__name__ == 'int' or type( default ).__name__ == 'str':
-				self.default = default
+		super(self.__class__, self).__init__(name, description, sees, examples, is_static, is_public)
+		self.is_readonly = BoolPart(is_readonly)
+		self.default = DefaultPart(default)
+		self.typed = TypedDocs(typed)
+	def to_markdown(self):
+		"""Output prepared in markdown format."""
+		lines = ""
+		types = []
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				types.append(typed.to_markdown())
 			else:
-				check_type( default, "default", str ) #or int
-				self.default = default
-		else:
-			self.default = NO_Default
-		if typed is None:
-			raise ValueError( "Type is not defined" )
-		typed = splittype( typed )
-		check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined....
-		self.typed = typed
-	def to_markdown( self ):
-		"""output prepared in markdown format."""
-		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_readonly  ) + "\t" + dotstr( self.description ) ) 
-	def to_dict( self ):
+				types.append(typed.get())
+		lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_readonly.get() + "\t" + self.description.get()
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		data['typed'] = self.typed
-		data['is_readonly'] = self.is_readonly
-		return( data )
+		data = super(self.__class__, self).to_dict()
+		data['typed'] = []
+		data['is_readonly'] = self.is_readonly.get()
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				data['typed'].append(typed.to_dict())
+			else:
+				data['typed'].append(typed.get())
+		return data
 
-class ReturnDoc( TechnicalDoc ):
-	"""
-	This handles returns of functions/methods/constructors
-	"""
-	def __init__( self, description, typed ):
+class ReturnDoc(TechnicalDoc):
+	"""This handles returns of functions/methods/constructors."""
+	def __init__(self, description, typed):
 		"""
-		>>> a = ReturnDoc( 'The new Person', 'Person' )
-		>>> a.typed
-		['Person']
-		"""
-		super( self.__class__, self ).__init__( "", description )
-		typed = splittype( typed )
-		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
-	def to_markdown( self ):
-		"""output prepared in markdown format."""
-		print( "'" +  "', '".join( self.typed ) + "'\t" + dotstr( self.description ) ) 
-	def to_dict( self ):
+		>>> a = ReturnDoc('The new Person', 'Person')
+		>>> len(a.typed)
+		1
+		>>> a.typed[0].get()
+		'Person'
+		>>> a = ReturnDoc('The new Person', 'Person|Animal')
+		>>> len(a.typed)
+		2
+		>>> a.typed[0].get()
+		'Person'
+		>>> a.typed[1].get()
+		'Animal'
+		>>> a = ReturnDoc('The new Person', ['Person', 'Animal'])
+		>>> len(a.typed)
+		2
+		>>> a.typed[0].get()
+		'Person'
+		>>> a.typed[1].get()
+		'Animal'
+"""
+		super(self.__class__, self).__init__("returnVariable", description)
+		self.typed = TypedDocs(typed)
+	def to_markdown(self):
+		"""Output prepared in markdown format."""
+		lines = ""
+		types = []
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				types.append(typed.to_markdown())
+			else:
+				types.append(typed.get())
+		lines += "'" +  "', '".join(types) + "'\t" + self.description.get()
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		data['typed'] = self.typed
-		return( data )
+		data = super(self.__class__, self).to_dict()
+		data['typed'] = []
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				data['typed'].append(typed.to_dict())
+			else:
+				data['typed'].append(typed.get())
+		return data
 
-class ParamDoc( TechnicalDoc ):
-	"""
-	This handles Parameters to functions/methods/constructors
-	"""
-	def __init__( self, name, description, typed = NO_Typed, default = NO_Default, is_optional = IS_Obligated ):
+class ParamDoc(TechnicalDoc):
+	"""This handles Parameters to functions/methods/constructors."""
+	def __init__(self, name, description, typed=NO_Typed, default=NO_Default, is_optional=IS_Obligated):
 		"""
-		>>> a = ParamDoc( 'sql', 'Sql statement to run', 'string', NO_Default, IS_Obligated )
-		>>> a.typed
-		['string']
-		
-		>>> a.default
-		
-		>>> a.is_optional
+		>>> a = ParamDoc('sql', 'Sql statement to run', 'string', NO_Default, IS_Obligated)
+		>>> len(a.typed)
+		1
+		>>> a.typed[0].get()
+		'string'
+		>>> a.default.get()
+		'None'
+		>>> a.is_optional.value()
 		False
-		
-		>>> a = ParamDoc( 'port', 'Port to listen to', 'string|int', 8080 )
-		>>> a.typed
-		['string', 'int']
-		
-		>>> a.is_optional
+		>>> a = ParamDoc('port', 'Port to listen to', 'string|int', 8080)
+		>>> len(a.typed)
+		2
+		>>> a.typed[0].get()
+		'string'
+		>>> a.typed[1].get()
+		'int'
+		>>> a.is_optional.value()
 		False
-		
-		>>> a.default
-		8080
-		
-		>>> a = ParamDoc( 'port', 'Port to listen to', ['string', 'int'], 8080, IS_Optional )
-		>>> a.typed
-		['string', 'int']
-		
-		>>> a.is_optional
+		>>> a.default.get()
+		'8080'
+		>>> a = ParamDoc('port', 'Port to listen to', ['string', 'int'], 8080, IS_Optional)
+		>>> len(a.typed)
+		2
+		>>> a.typed[0].get()
+		'string'
+		>>> a.typed[1].get()
+		'int'
+		>>> a.is_optional.value()
 		True
 		"""
-		super( ParamDoc, self ).__init__( name, description )
-		typed = splittype( typed )
-		self.typed = check_list_type( typed, "typed", str ) #TODO: check for JStypes or types that were defined ....
-		self.default = default
-		self.is_optional = is_optional
-	def to_markdown( self ):
-		"""output prepared in markdown format."""
-		print( self.name + "\t'" + "', '".join( self.typed ) + "'\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) ) 
-	def to_dict( self ):
+		super(ParamDoc, self).__init__(name, description)
+		self.default = DefaultPart(default)
+		self.is_optional = BoolPart(is_optional)
+		self.typed = TypedDocs(typed)
+	def to_markdown(self):
+		"""Output prepared in markdown format."""
+		lines = ''
+		types = []
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				types.append(typed.to_markdown())
+			else:
+				types.append(typed.get())
+		lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_optional.get() + "\t" + self.description.get()
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( ParamDoc, self ).to_dict( )
-		data['typed'] = self.typed
-		data['default'] = self.default
-		data['is_optional'] = self.is_optional
-		return( data )
+		data = super(ParamDoc, self).to_dict()
+		data['typed'] = []
+		for typed in self.typed:
+			if type(typed).__name__ == 'ObjectDoc':
+				data['typed'].append(typed.to_dict())
+			else:
+				data['typed'].append(typed.get())
+		data['default'] = self.default.get()
+		data['is_optional'] = self.is_optional.get()
+		return data
 
-class EventDoc( FunctionDoc ):
+class EventDoc(FunctionDoc):
 	"""
 	This handles events.
 	Events are basically callbacks/functions that can be triggered everywhere in the class code
 	"""
-	def __init__( self, name, description, sees = NO_Sees, examples = NO_Examples, params = NO_Params ):
+	def __init__(self, name, description, sees=NO_Sees, examples=NO_Examples, params=NO_Params):
 		"""
-		>>> a = EventDoc( 'onError', 'This will be called if an error occurs', NO_Sees, NO_Examples, [ ParamDoc( 'err', 'errorcode', 'integer', 111 ) ] )
-		>>> type( a.params )
+		>>> a = EventDoc('onError', 'This will be called if an error occurs', NO_Sees, NO_Examples, [ParamDoc('err', 'errorcode', 'integer', 111)])
+		>>> type(a.params)
 		<type 'list'>
-		
-		>>> a.params[ 0 ].default
-		111
-			
+		>>> a.params[0].default.get()
+		'111'
 		"""
-		super( self.__class__, self ).__init__( name, description, sees, examples )
-		self.params = check_list_type( params, "params", ParamDoc )
-	def to_markdown( self ):
-		"""output prepared in markdown format."""
-		super( self.__class__, self ).to_markdown( )
-	def to_dict( self ):
+		super(self.__class__, self).__init__(name, description, sees, examples)
+		if params is None:
+			params = []
+		self.params = self.assure_list_of_type(params, "params", ParamDoc)
+	def to_markdown(self):
+		"""Output prepared in markdown format."""
+		return super(self.__class__, self).to_markdown()
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		return( data )
+		data = super(self.__class__, self).to_dict()
+		return data
 
-
-class CallbackDoc( ParamDoc ):
+class CallbackDoc(ParamDoc):
 	"""
-	This handles parameters that are callback-functions/methods. 
+	This handles parameters that are callback-functions/methods.
 	These differ because a callback function has parameters that need to be documented as well
 	"""
-	def __init__( self, name, description, params = NO_Params ):
+	def __init__(self, name, description, params=NO_Params):
 		"""
-		>>> a = CallbackDoc( 'callback', 'The function that will be called', [ ParamDoc( 'res', 'result', 'string', NO_Default ) ] )
-		>>> type( a.params )
+		>>> a = CallbackDoc('callback', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default)])
+		>>> type(a.params)
 		<type 'list'>
-		
-		>>> type( a.params[ 0 ] )
+		>>> type(a.params[0])
 		<class '__main__.ParamDoc'>
-			
-		>>> a.is_optional
+		>>> a.is_optional.value()
 		False
-		
-		>>> a = CallbackDoc( 'callback', 'The function that will be called', NO_Params )
-		>>> type( a.params )
+		>>> a = CallbackDoc('callback', 'The function that will be called', NO_Params)
+		>>> type(a.params)
 		<type 'list'>
-		
-		>>> a = CallbackDoc( 'callback', 'The function that will be called', ParamDoc( 'res', 'result', 'string', NO_Default, IS_Obligated ) )
-		>>> type( a.params )
+		>>> len(a.params)
+		0
+		>>> a = CallbackDoc('callback', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default, IS_Obligated)])
+		>>> type(a.params)
 		<type 'list'>
+		>>> len(a.params)
+		1
 		"""
-		super( CallbackDoc, self ).__init__( name, description, 'function', NO_Default, IS_Obligated )
-		self.params = check_list_type( params, "params", ParamDoc )
-	def to_markdown( self ):
-		"""output prepared in markdown format."""
+		super(CallbackDoc, self).__init__(name, description, 'function', NO_Default, IS_Obligated)
+		if params is None:
+			params = []
+		self.params = self.assure_list_of_type(params, "params", ParamDoc)
+	def to_markdown(self):
+		"""Output prepared in markdown format."""
+		lines = ''
 		extra = ""
 		for param in self.params:
-			extra += param.name + "\t'" + "', '".join( param.typed ) + "'\t" + boolstr( param.is_optional ) + "\t" + dotstr( param.description ) + "\n"
-		print( self.name + "\t" + "'callback'" + "\t" + boolstr( self.is_optional ) + "\t" + dotstr( self.description ) + extra )
-	def to_dict( self ):
+			types = []
+			if isinstance(param.typed, list):
+				for tpy in param.typed:
+					if type(tpy).__name__ == 'ObjectDoc':
+						types.append(tpy.to_markdown())
+					else:
+						types.append(tpy.get())
+			elif type(param.types).__name__ == 'ObjectDoc':
+				types = [param.typed.to_markdown()]
+			else:
+				types = [param.typed.get()]
+			extra += param.name.get() + "\t'" + "', '".join(types) + "'\t" + param.is_optional.get() + "\t" + param.description.get() + "\n"
+		lines += self.name.get() + "\t" + "'callback'" + "\t" + self.is_optional.get() + "\t" + self.description.get() + extra
+		return lines
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		data['is_optional'] = self.is_optional
+		data = super(self.__class__, self).to_dict()
+		data['is_optional'] = self.is_optional.get()
 		data['params'] = []
 		for i in self.params:
-			data['params'].append( i.to_dict( ) )
-		return( data )
+			data['params'].append(i.to_dict())
+		return data
 
-class ExampleDoc( BasicDoc ):
+class ExampleDoc(BasicDoc):
 	"""
 	This handles examples
 	"""
-	def __init__( self, example, lang='javascript' ):
+	def __init__(self, example, lang='javascript'):
 		"""
-		>>> a = ExampleDoc( 'print( "hello" )' )
-		>>> a.data
-		'print( "hello" )'
+		>>> a = ExampleDoc('''var a = {} ''')
+		>>> a.data.get()
+		'var a = {}'
+		>>> a.language.get()
+		'javascript'
+		>>> a = ExampleDoc('''mov 0, 1''', '''redcode''')
+		>>> a.language.get()
+		'redcode'
 		"""
-		super( self.__class__, self ).__init__( )
-		check_list_type( example, "example", str ) 
-		self.data = example.strip()
-		self.language = lang
-	def to_markdown( self ):
-		"""output prepared for in markdown format."""
-		print( "```" + self.language + "\n" + self.data + "\n```" )
-	def to_dict( self ):
+		super(self.__class__, self).__init__()
+		self.data = CodePart(example)
+		self.language = LanguagePart(lang)
+	def to_markdown(self):
+		"""Output prepared for in markdown format."""
+		return "```" + self.language.get() + "\n" + self.data.get() + "\n```"
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		data['data'] = self.data
-		data['language'] = self.language
-		return( data )
+		data = super(self.__class__, self).to_dict()
+		data['data'] = self.data.get()
+		data['language'] = self.language.get()
+		return data
 
-def SeesDocs( list_of_sees ):
-	"""
-	Builds a list of Seedoc's based on a string with '|'
-	>>> a = SeesDocs( "dummy1" )
-	>>> a[0].data
-	'dummy1'
-	
-	>>> a = SeesDocs( "dummy1|dummy2" )
-	>>> a[1].data
-	'dummy2'
-	""" 
-	if list_of_sees:
-		list_of_sees = splittype( list_of_sees )
-		for i, see in enumerate( list_of_sees ):
-			list_of_sees[i] = SeeDoc( see )
-	return list_of_sees
-
-class SeeDoc( BasicDoc ):
+class SeeDoc(BasicDoc):
 	"""
 	This handles see's
 	"""
-	def __init__( self, see ):
+	def __init__(self, see):
 		"""
-		>>> a = SeeDoc( 'dummy' )
-		>>> a.data 
+		>>> a = SeeDoc('dummy')
+		>>> a.data.get()
 		'dummy'
+		>>> a.to_dict()
+		{'data': 'dummy'}
+		>>> a.to_markdown()
+		'__dummy__'
 		"""
-		super( self.__class__, self ).__init__( )
-		check_list_type( see, "see", str )
-		self.data = see
-	def to_markdown( self ):
-		"""output prepared for in markdown format."""
-		print( "__" + self.data + "__" )
-	def to_dict( self ):
+		if "|" in see:
+			raise TypeError("SeeDoc may not have a '|'. 'SeesDocs' to for your convienience.")
+		super(self.__class__, self).__init__()
+		self.data = NamePart(see)
+		TypedPart.register_name_part(self.data.get())
+	def to_markdown(self):
+		"""Output prepared for in markdown format."""
+		return "__" + self.data.get() + "__"
+	def to_dict(self):
 		"""Prepare a normal interface to export data."""
-		data = super( self.__class__, self ).to_dict( )
-		data['data'] = self.data
-		return( data )
+		data = super(self.__class__, self).to_dict()
+		data['data'] = self.data.get()
+		return data
 
-def check( docs ):
-	"do some checks"
-	types_list = ['integer', 'boolean', 'float', 'string', 'mixed', 'null', 'Date', 'Object', 'ArrayBuffer', 'Uint16Array', 'Array', 
-		'object', '?',
-		'SocketClient', 'Canvas', 'NDMElement.color', 'Canvas2DContext', 'AudioBuffer'
-				]
-	for typed in list( types_list ):
-		types_list.append( "[" + typed + "]" )
-	items_list = []
-	for class_name, class_details in docs['classes'].items( ):
-		types_list.append( class_name )
-		types_list.append( "[" + class_name + "]" )
-		items_list.append( class_name )
-		for type_details in class_details.values( ):
-			for item, item_details in type_details.items( ):
-				items_list.append( item )
-	for class_name, class_details in docs['classes'].items( ):
-		for chapter, type_details in class_details.items( ):
-			if chapter == 'base':
-				if type(type_details[class_name]) == type( dict() ):
-					sys.stderr.write( "Class/Namespace '" + class_name + "' is not defined.\n" )
-					sys.exit( 1 )
-			for item, item_details in type_details.items( ):
-				#TODO: Refractor
-				if hasattr( item, "sees" ) :
-					for sees in item_details.sees:
-						if sees.data not in items_list:
-							sys.stderr.write( "See '" + sees.data + "' in " +  item + "'s SeeDoc is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "inherrits" ):
-					for typed in item_details.inherrits:
-						if typed not in types_list:
-							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "extends" ):
-					for typed in item_details.extends:
-						if typed not in types_list:
-							sys.stderr.write( "The type '" + typed + "' in " + item + "'s Extends is not defined.\n" )
-							sys.exit( 1 )
-				if hasattr( item_details, "constructors" ):
-					for constructor in item_details.constructors:
-						for typed in constructor.typed:
-							if typed not in types_list:
-								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
-								sys.exit( 1 )
-				if hasattr( item_details, "returns" ):
-					for returns in item_details.returns:
-						for typed in returns.typed:
-							if typed not in types_list:
-								sys.stderr.write( "The type '" + typed + "' in " + item + "'s ReturnDoc is not defined.\n" )
-								sys.exit( 1 )
-				if hasattr( item_details, "events" ):
-					for params in item_details.events:
-							for typed in params.typed:
-								if typed not in types_list:
-									sys.stderr.write( "The type '" + typed + "' in " + item + " 's EventDoc is not defined.\n" )
-									sys.exit( 1 )
-				if hasattr( item_details, "params" ):
-					for params in item_details.params:
-						if type( params ).__name__ == 'CallbackDoc':
-							for param in params.params:
-								for typed in param.typed:
-									if typed not in types_list:
-										sys.stderr.write( "The type '" + typed + "' in " + item + "'s CallbackDoc is not defined.\n" )
-										sys.exit( 1 )
-						else:
-							for typed in params.typed:
-								if typed not in types_list:
-									sys.stderr.write( "The type '" + typed + "' in " + item + " 's ParamDoc is not defined.\n" )
-									sys.exit( 1 )
-				if hasattr( item_details, "properties" ):
-					for prop in item_details.properties:
-						if prop.typed not in types_list:
-							sys.stderr.write( "The type '" + prop.typed + "' in " + item + "'s FieldDoc is not defined.\n" )
-							sys.exit( 1 )
+def SplitDocs(list_of, cls):
+	"""
+	Builds a list of InherritsDoc's based on a string with '|'
+	>>> a = SplitDocs("dummy1", SeeDoc)
+	>>> a[0].data.get()
+	'dummy1'
+	>>> a = SplitDocs("dummy1|dummy2", SeeDoc)
+	>>> a[0].data.get()
+	'dummy1'
+	>>> a[1].data.get()
+	'dummy2'
+	"""
+	if not list_of:
+		list_of = []
+	elif isinstance(list_of, str):
+		list_of = BasicDoc.splittype(list_of)
+	if isinstance(list_of, list):
+		for i, item in enumerate(list_of):
+			list_of[i] = cls(item)
+	else:
+		raise TypeError("Expected a string to generate a list of class: '" + cls.__name__ + "'")
+	return list_of
 
-def report( variant , docs ):
+class ObjectDoc(BasicDoc):
+	"""
+	This handles object definitions (for instance in return types)"
+	"""
+	def __init__(self, obj, is_array=IS_Single):
+		"""
+		>>> a = ObjectDoc([])
+		>>> a.data
+		[]
+		>>> a = ObjectDoc([("key", "text", 'integer')])
+		>>> a.data[0][0].get()
+		'key'
+		>>> a.data[0][1].get()
+		'Text.'
+		>>> a.data[0][2][0].get()
+		'integer'
+		>>> a.is_array
+		False
+		>>> a.to_markdown()
+		'[key: Text. (integer)]'
+		>>> a.to_dict()
+		{'type': 'Object', 'name': 'JS Object', 'details': [{'typed': ['integer'], 'name': 'key', 'description': 'Text.'}]}
+		>>> a = ObjectDoc([("key", "text", 'integer')], IS_Array)
+		>>> a.is_array
+		True
+		"""
+		#todo automatically [] if it is not a list
+		super(self.__class__, self).__init__()
+		self.sees = self.assure_list_of_type(obj, "Object", tuple)
+		self.data = []
+		self.is_array = is_array
+		for name, description, typed in obj:
+			name = NamePart(name)
+			description = DescriptionPart(description)
+			typed = TypedDocs(typed)
+			self.data.append((name, description, typed))
+	def to_markdown(self):
+		"""Output prepared for in markdown format."""
+		lines = ""
+		data = []
+		for name, description, typed in self.data:
+			types = []
+			for tpy in typed:
+				if isinstance(tpy, list):
+					types.append(tpy.to_markdown())
+				elif type(tpy).__name__ == 'ObjectDoc':
+					types.append(tpy.to_markdown())
+				else:
+					types.append(tpy.get())
+			data.append(name.get() + ": " + description.get() + " (" + ",".join(types) + ")")
+		lines += "[" + ", ".join(data) + "]"
+		if self.is_array:
+			lines = "[" + lines + "]"
+		return lines
+	def to_dict(self):
+		"""Prepare a normal interface to export data."""
+		details = []
+		for name, description, typed in self.data:
+			types = []
+			for tpy in typed:
+				if isinstance(tpy, list):
+					types.append(tpy.to_dict())
+				elif type(tpy).__name__ == 'ObjectDoc':
+					types.append(tpy.to_dict())
+				else:
+					types.append(tpy.get())
+			details.append({'name': name.get(), 'description': description.get(), 'typed': types})
+		data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
+		if self.is_array:
+			data = [data]
+		return data
+
+def SeesDocs(list_of=None):
+	return SplitDocs(list_of, SeeDoc)
+
+def OopDocs(list_of=None):
+	list_of = SplitDocs(list_of, NamePart)
+	for i in list_of:
+		TypedPart.register_name(i.get())
+	return list_of
+
+def TypedDocs(list_of=None):
+	if type(list_of).__name__ == 'ObjectDoc':
+		return [list_of]
+	list_of = SplitDocs(list_of, TypedPart)
+	for i in list_of:
+		TypedPart.register_name(i.get())
+	return list_of
+
+def check(docs):
+	defined_types = []
+	for known in docs['classes'].keys():
+		defined_types.append(known)
+		defined_types.append("[" + known + "]")
+	for known in IGNORE_TYPES:
+		defined_types.append(known)
+		defined_types.append("[" + known + "]")
+	missing = []
+	for i in docs['unknown_types']:
+		if i not in defined_types:
+			missing.append(i)
+	return missing
+
+def report(variant, docs):
 	"dump it in a layout"
 	data = {}
-	for class_name, class_details in docs['classes'].items( ):
+	for class_name, class_details in docs['classes'].items():
 		data[class_name] = {}
 		count = 0
-		for type_doc, type_details in class_details.items( ):
+		for type_doc, type_details in class_details.items():
 			data[class_name][type_doc] = {}
-			for item, item_details in type_details.items( ):
-				data[class_name][type_doc][item] = item_details.to_dict( )
+			for item, item_details in type_details.items():
+				if isinstance(item_details, dict):
+					data[class_name][type_doc][item] = item_details
+				else:
+					data[class_name][type_doc][item] = item_details.to_dict()
 				if type_doc != 'base':
-					count += len( data[class_name][type_doc].keys( ) )
-		if count == 0 and class_name != 'global':
-			del data[class_name]
+					count += len(data[class_name][type_doc].keys())
 	if variant == 'json':
-		print( json.dumps( data ) )
+		print(json.dumps(data))
 	elif variant == 'exampletest':
 		code = ''
-		counter = 0;
-		for class_name, class_details in data.items( ):
+		counter = 0
+		for class_name, class_details in data.items():
 			code += "Tests.register('Running tests for %s', function() {});\n" % class_name
-			for type_doc, type_details in class_details.items( ):
-				for item, item_details in type_details.items( ):
-					for i, example in enumerate( item_details['examples'] ):
-						if example['language'] == 'javascript':
-							name = class_name + '.' + type_doc + "." + item + "." + str( i );
-							examplecode = "\n\t\t".join( example['data'].splitlines( ) )
-#							examplecode = "\n\ttry {\n\t\t" + examplecode + "\n\t} catch( err ) {\n\t\tconsole.log('Syntax error in example code; Go fix `" + name + "`!' + err.message );\n\t}"
-							code += '\nTests.register("' + name + '", function( ) {'
-							code += "\n\tvar dummy = " + str( counter ) + ';'
-							code += "\n\t\t" + examplecode
-							code += "\n\n\tAssert.equal(dummy, " +str( counter ) +');'
-							code += '\n});\n'
-							counter += 1;
-		print( code )
+			for type_doc, type_details in class_details.items():
+				for item, item_details in type_details.items():
+					if item_details.has_key('examples'):
+						for i, example in enumerate(item_details['examples']):
+							if example['language'] == 'javascript':
+								name = class_name + '.' + type_doc + "." + item + "." + str(i)
+								examplecode = "\n\t\t".join(example['data'].splitlines())
+								code += '\nTests.register("' + name + '", function() {'
+								code += "\n\tvar dummy = " + str(counter) + ';'
+								code += "\n\t\t" + examplecode
+								code += "\n\n\tAssert.equal(dummy, " + str(counter) + ');'
+								code += '\n});\n'
+								counter += 1
+		print(code)
 	elif variant == 'markdown':
-		for class_name, class_details in docs['classes'].items( ):
-			if data.has_key( class_name ):
-				print( "\n\n\n\n#" + class_name + "\n" )
-				for type_doc, type_details in class_details.items( ):
-					if type_doc != 'base' and len( type_details.keys( ) ) > 0:
-						print( "\n\n\n## " + type_doc + "\n" )
-						for item, item_details in type_details.items( ):
-							print( "\n\n### " + item + "\n" )
-							item_details.to_markdown( )
+		lines = ''
+		for class_name, class_details in docs['classes'].items():
+			if data.has_key(class_name):
+				lines += "\n\n\n\n#" + class_name + "\n\n"
+				for type_doc, type_details in class_details.items():
+					if type_doc != 'base' and len(type_details.keys()) > 0:
+						lines += "\n\n\n## " + type_doc + "\n\n"
+						for item, item_details in type_details.items():
+							lines += "\n\n### " + item + "\n\n"
+							lines += item_details.to_markdown()
+		print(lines)
 
-def process_dir_recurse( dir_name ):
+def process(dir_name):
 	"""
 	Go through all the files in the dirName process the raw sourcecode
 	"""
-	for file_name in os.listdir( dir_name ):
-		full_file_name = os.path.join( dir_name, file_name )
-		if not os.path.isdir( full_file_name ):
-			if os.path.splitext( full_file_name )[-1] == '.py' and file_name != '.ycm_extra_conf.py':
-				#print( "#Reading " + full_file_name )
-				imp.load_source( 'DOCC', full_file_name )
-		else:
-			process_dir_recurse( full_file_name )
+	if os.path.isfile(dir_name):
+		imp.load_source('DOCC', dir_name)
+	else:
+		for file_name in os.listdir(dir_name):
+			full_file_name = os.path.join(dir_name, file_name)
+			if not os.path.isdir(full_file_name):
+				if os.path.splitext(full_file_name)[-1] == '.py' and file_name != '.ycm_extra_conf.py':
+					imp.load_source('DOCC', full_file_name)
+			else:
+				process(full_file_name)
 
 VARIANTS = ['doctest', 'markdown', 'json', 'exampletest']
-def usage( ):
+def usage():
 	"""Usage."""
-	print( "Usage: "+ sys.argv[0] + "cmd DIR [DIR2, ]\n\tcmd:	'" + "', '".join( VARIANTS ) + "'." )
-	sys.exit( 1 )
-	
-def main( ):
+	print("Usage: "+ sys.argv[0] + "cmd DIR [DIR2,]\n\tcmd:	'" + "', '".join(VARIANTS) + "'.")
+	sys.exit(1)
+
+def main():
 	"""The main routine"""
-	if len( sys.argv ) == 1:
-		usage( )
+	if len(sys.argv) == 1:
+		usage()
 	cmd = sys.argv[1]
 	if cmd == 'doctest':
 		import doctest
-		doctest.testmod( )
-	elif len( sys.argv ) > 2 and cmd in VARIANTS:
-		for i in range( 2, len( sys.argv ) ):
-			process_dir_recurse( sys.argv[i] )
-		if not sys.modules.has_key( 'DOCC' ):
-			sys.stderr.write( "No documentation found.\n" )
-			sys.exit( 1 )
+		doctest.testmod()
+	elif len(sys.argv) > 2 and cmd in VARIANTS:
+		for i in range(2, len(sys.argv)):
+			process(sys.argv[i])
+		if not sys.modules.has_key('DOCC'):
+			sys.stderr.write("No documentation found.\n")
+			sys.exit(1)
 		docs = sys.modules['DOCC'].DOC
-		check( docs )
-		report( cmd, docs )
+		report(cmd, docs)
+		missing = check(docs)
+		if len(missing) > 0:
+			sys.stderr.write("\nWarning: missing types: '" + "', '".join(missing) + "'\n")
 	else:
-		usage( )
-
-
-NamespaceDoc( 'global', 'Javascript Global namespace.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Strings', 'Javascript strings type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'ArrayBuffer', 'Javascript ArrayBuffer type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Object', 'Javascript Object type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Uint8Array', 'Javascript Uint8Array type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Number', 'Javascript Number type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Array', 'Javascript Array type.', NO_Sees, NO_Examples )
-NamespaceDoc( 'Math', 'Javascript Math namespace.', NO_Sees, NO_Examples )
+		usage()
+IGNORE_TYPES = ['null', 'integer', 'string', 'boolean', 'float', 'mixed', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
 
 if __name__ == '__main__':
-	main( )
+	main()
 
