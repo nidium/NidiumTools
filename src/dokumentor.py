@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2.7
 """
 Tool to generate documentation in a different way then JSDoc does
 
