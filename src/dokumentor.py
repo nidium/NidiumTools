@@ -119,7 +119,6 @@ class DescriptionPart(DocPart):
 		''
 		"""
 		if isinstance(text, str):
-			text = text.title()
 			if len(text) > 0 and text[-1] != '.':
 				text += '.'
 		return text
