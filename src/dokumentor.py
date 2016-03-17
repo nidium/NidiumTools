@@ -97,17 +97,22 @@ class TypedPart(NamePart):
 
 class DescriptionPart(DocPart):
 	"Class for description documentation"
-	def __init__(self, description):
+
+	def __init__(self, description, dotify=True):
 		"""Assure that the description is a string"
 		>>> a = DescriptionPart("test")
 		>>> print(a)
 		Test.
 		"""
+
 		if not isinstance(description, str):
 			raise TypeError(description + " is not a string")
+
 		if len(description.strip()) < 3:
 			raise TypeError(description + " is too short for a good description.")
-		self.data = self.dotstr(description.strip())
+
+		self.data = (self.dotstr(description) if dotify else description).strip()
+
 	@staticmethod
 	def dotstr(text):
 		""" Asure that the text is starting with a captial and ending with a '.'
@@ -260,18 +265,22 @@ class TechnicalDoc(BasicDoc):
 		"""
 		super(TechnicalDoc, self).__init__()
 		self.name = NamePart(name)
-		self.description = DescriptionPart(description)
 		typed = type(self).__name__
 		class_name = self.name.get()
+
 		#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
 		if typed == 'NamespaceDoc' or typed == 'ClassDoc':
 			pass
 		elif '.' in self.name.get():
 			class_name = self.name.get()[:self.name.get().index('.')]
+
 		key = ''
 		add = False
+		dotifyDescription = True 
+
 		if not class_name in DOC['classes']:
 			add = True
+
 		if typed == 'EventDoc':
 			key = 'events'
 		elif typed == 'FieldDoc':
@@ -284,12 +293,17 @@ class TechnicalDoc(BasicDoc):
 			key = 'base'
 		elif typed == 'ReturnDoc' or typed == 'ParamDoc' or typed == 'CallbackDoc':
 			add = False
+			dotifyDescription = False
 		elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
 			add = False
 		else:
 			raise ValueError('A very specific bad thing happened')
+
+		self.description = DescriptionPart(description, dotify=dotifyDescription)
+
 		if add:
 			DOC['classes'][class_name] = {'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {}}}
+
 		if key != '':
 			DOC['classes'][class_name][key][self.name.get()] = self
 	def to_dict(self):
@@ -883,7 +897,7 @@ class ObjectDoc(BasicDoc):
 		self.is_array = is_array
 		for name, description, typed in obj:
 			name = NamePart(name)
-			description = DescriptionPart(description)
+			description = DescriptionPart(description, dotify=False)
 			typed = TypedDocs(typed)
 			self.data.append((name, description, typed))
 	def to_markdown(self):
