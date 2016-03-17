@@ -135,7 +135,7 @@ class BoolPart(DocPart):
 		'false'
 		"""
 		if not isinstance(value, bool):
-			raise TypeError(value + " is not a boolean")
+			raise TypeError(str(value) + " is not a boolean")
 		self.data = value
 	def __str__(self):
 		"""true if so, etc."""
