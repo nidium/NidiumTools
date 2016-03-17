@@ -340,8 +340,8 @@ class DetailDoc(TechnicalDoc):
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(DetailDoc, self).to_dict()
-		data['is_public'] = self.is_public.get()
-		data['is_static'] = self.is_static.get()
+		data['is_public'] = self.is_public.value()
+		data['is_static'] = self.is_static.value()
 		data['sees'] = []
 		data['examples'] = []
 		if len(self.sees) > 0:
@@ -491,8 +491,8 @@ class FunctionDoc(DetailDoc):
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(FunctionDoc, self).to_dict()
-		data['is_constructor'] = self.is_constructor.get()
-		data['is_slow'] = self.is_slow.get()
+		data['is_constructor'] = self.is_constructor.value()
+		data['is_slow'] = self.is_slow.value()
 		data['params'] = []
 		for param in self.params:
 			data['params'].append(param.to_dict())
@@ -571,7 +571,7 @@ class FieldDoc(DetailDoc):
 		"""Prepare a normal interface to export data."""
 		data = super(self.__class__, self).to_dict()
 		data['typed'] = []
-		data['is_readonly'] = self.is_readonly.get()
+		data['is_readonly'] = self.is_readonly.value()
 		for typed in self.typed:
 			if type(typed).__name__ == 'ObjectDoc':
 				data['typed'].append(typed.to_dict())
@@ -686,7 +686,7 @@ class ParamDoc(TechnicalDoc):
 			else:
 				data['typed'].append(typed.get())
 		data['default'] = self.default.get()
-		data['is_optional'] = self.is_optional.get()
+		data['is_optional'] = self.is_optional.value()
 		return data
 
 class EventDoc(FunctionDoc):
@@ -765,7 +765,7 @@ class CallbackDoc(ParamDoc):
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(self.__class__, self).to_dict()
-		data['is_optional'] = self.is_optional.get()
+		data['is_optional'] = self.is_optional.value()
 		data['params'] = []
 		for i in self.params:
 			data['params'].append(i.to_dict())
