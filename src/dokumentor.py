@@ -519,7 +519,7 @@ class ConstructorDoc(FunctionDoc):
 		>>> a.returns.typed[0].get()
 		'Webserver'
 		"""
-		super(self.__class__, self).__init__(name, description, sees, examples, True, True, False, params, returns)
+		super(self.__class__, self).__init__(name, description, sees, examples, IS_Dynamic, IS_Public, IS_Fast, params, returns)
 		self.is_constructor = BoolPart(True)
 		TypedPart.register_name_part(self.name.get())
 	def to_markdown(self):
