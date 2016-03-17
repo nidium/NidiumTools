@@ -172,6 +172,7 @@ class CommandLine:
 
             if "prompt" in kwargs:
                 prompt = kwargs["prompt"] 
+                del kwargs["prompt"]
 
             if "default" in kwargs:
                 default = kwargs["default"]
