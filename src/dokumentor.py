@@ -121,7 +121,7 @@ class DescriptionPart(DocPart):
 		if isinstance(text, str):
 			if len(text) > 0 and text[-1] != '.':
 				text += '.'
-		return text
+		return text.title()
 
 class BoolPart(DocPart):
 	def __init__(self, value):
@@ -329,7 +329,7 @@ class DetailDoc(TechnicalDoc):
 		if len(self.sees) > 0:
 			lines += "__Sees__:" + "\n"
 			for see in self.sees:
-				if self.name.get() is not see.data:
+				if self.name.get() is not see.data.get():
 					lines += see.to_markdown()
 		if len(self.examples) > 0:
 			lines += "\n__Examples__:" + "\n"
@@ -344,9 +344,10 @@ class DetailDoc(TechnicalDoc):
 		data['is_static'] = self.is_static.value()
 		data['sees'] = []
 		data['examples'] = []
+
 		if len(self.sees) > 0:
 			for see in self.sees:
-				if self.name.get() is not see.data:
+				if self.name.get() !=  see.data.get():
 					data['sees'].append(see.to_dict())
 		if len(self.examples) > 0:
 			for example in self.examples:
