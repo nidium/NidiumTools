@@ -97,17 +97,22 @@ class TypedPart(NamePart):
 
 class DescriptionPart(DocPart):
 	"Class for description documentation"
-	def __init__(self, description):
+
+	def __init__(self, description, dotify=True):
 		"""Assure that the description is a string"
 		>>> a = DescriptionPart("test")
 		>>> print(a)
 		Test.
 		"""
+
 		if not isinstance(description, str):
 			raise TypeError(description + " is not a string")
+
 		if len(description.strip()) < 3:
 			raise TypeError(description + " is too short for a good description.")
-		self.data = self.dotstr(description.strip())
+
+		self.data = (self.dotstr(description) if dotify else description).strip()
+
 	@staticmethod
 	def dotstr(text):
 		""" Asure that the text is starting with a captial and ending with a '.'
@@ -260,20 +265,27 @@ class TechnicalDoc(BasicDoc):
 		"""
 		super(TechnicalDoc, self).__init__()
 		self.name = NamePart(name)
-		self.description = DescriptionPart(description)
 		typed = type(self).__name__
 		class_name = self.name.get()
+                entry_name = self.name.get()
+
 		#todo refractor this whole 'typed' thing: https://xkcd.com/1421/
 		if typed == 'NamespaceDoc' or typed == 'ClassDoc':
 			pass
 		elif '.' in self.name.get():
 			class_name = self.name.get()[:self.name.get().index('.')]
+
 		key = ''
 		add = False
+		dotifyDescription = True 
+
 		if not class_name in DOC['classes']:
 			add = True
+
 		if typed == 'EventDoc':
 			key = 'events'
+                        # Store the name of the event instead of Class.event
+                        entry_name = entry_name[entry_name.index('.') + 1:]
 		elif typed == 'FieldDoc':
 			key = 'properties'
 		elif typed == 'FunctionDoc':
@@ -284,14 +296,19 @@ class TechnicalDoc(BasicDoc):
 			key = 'base'
 		elif typed == 'ReturnDoc' or typed == 'ParamDoc' or typed == 'CallbackDoc':
 			add = False
+			dotifyDescription = False
 		elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
 			add = False
 		else:
 			raise ValueError('A very specific bad thing happened')
+
+		self.description = DescriptionPart(description, dotify=dotifyDescription)
+
 		if add:
 			DOC['classes'][class_name] = {'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {}}}
+
 		if key != '':
-			DOC['classes'][class_name][key][self.name.get()] = self
+			DOC['classes'][class_name][key][entry_name] = self
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(TechnicalDoc, self).to_dict()
@@ -356,7 +373,8 @@ class DetailDoc(TechnicalDoc):
 
 class NamespaceDoc(DetailDoc):
 	"""This handles 'namespaces, witch are placeholders/castrated classes."""
-	def __init__(self, name, description, sees=None, examples=NO_Examples):
+
+	def __init__(self, name, description, sees=None, examples=NO_Examples, section=None):
 		"""
 		>>> a = NamespaceDoc('Math', 'Math namespace', NO_Sees, NO_Examples)
 		>>> type(a.examples)
@@ -372,19 +390,31 @@ class NamespaceDoc(DetailDoc):
 		>>> a.is_public.value()
 		True
 		"""
-		super(self.__class__, self).__init__(name, description, sees, examples, True, True)
+
+		super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public)
 		TypedPart.register_name(self.name.get())
+
+		self.section = NamePart(section) if section else None
+
 	def to_markdown(self):
 		"""Output prepared for copy and pasting to nidiums backoffice website"""
+
 		return super(NamespaceDoc, self).to_markdown()
+
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
+
 		data = super(self.__class__, self).to_dict()
+
+		if self.section:
+			data["section"] = self.section.get()
+
 		return data
 
 class ClassDoc(DetailDoc):
 	"This handles classes"
-	def __init__(self, name, description, sees=None, examples=NO_Examples, inherrits=None, extends=None):
+
+	def __init__(self, name, description, sees=None, examples=NO_Examples, inherrits=None, extends=None, section=None):
 		"""
 		>>> a = ClassDoc('Console', 'Log interface', NO_Sees, NO_Examples, NO_Inherrits, NO_Extends)
 		>>> type(a.inherrits)
@@ -407,35 +437,54 @@ class ClassDoc(DetailDoc):
 		>>> a.extends[1].get()
 		'Pord'
 		"""
-		super(self.__class__, self).__init__(name, description, sees, examples, IS_Static, IS_Public)
+
+		super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public)
+		TypedPart.register_name(self.name.get())
+
 		if inherrits is None:
 			inherrits = []
+
 		if extends is None:
 			extends = []
+
 		self.inherrits = OopDocs(inherrits)
 		self.extends = OopDocs(extends)
-		TypedPart.register_name(self.name.get())
+		self.section = NamePart(section) if section else None
+
 	def to_markdown(self):
 		"""Output prepared for copy and pasting to nidiums backoffice website"""
+
 		lines = super(self.__class__, self).to_markdown()
+
 		if len(self.inherrits) > 0:
 			lines += "\n__Inherrits__:" + "\n"
 			for inherrit in self.inherrits:
 				lines += inherrit
+
 		if len(self.extends) > 0:
 			lines += "\n__Extends__:" + "\n"
 			for examp in self.extends:
 				lines += examp
+
 		return lines
+
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
+
 		data = super(self.__class__, self).to_dict()
+
 		data['inherrits'] = []
+		data['extends'] = []
+
+		if self.section:
+			data["section"] = self.section.get()
+
 		for inh in self.inherrits:
 			data['inherrits'].append(inh.get())
-		data['extends'] = []
+
 		for ext in self.extends:
 			data['extends'].append(ext.get())
+
 		return data
 
 class FunctionDoc(DetailDoc):
@@ -709,10 +758,17 @@ class EventDoc(FunctionDoc):
 		self.params = self.assure_list_of_type(params, "params", ParamDoc)
 	def to_markdown(self):
 		"""Output prepared in markdown format."""
+		if self.params > 0:
+			lines += "\n__Parameters__:" + "\n"
+			for param in self.params:
+				lines += param.to_markdown()
 		return super(self.__class__, self).to_markdown()
 	def to_dict(self):
 		"""Prepare a normal interface to export data."""
 		data = super(self.__class__, self).to_dict()
+		data['params'] = []
+		for param in self.params:
+			data['params'].append(param.to_dict())
 		return data
 
 class CallbackDoc(ParamDoc):
@@ -884,7 +940,7 @@ class ObjectDoc(BasicDoc):
 		self.is_array = is_array
 		for name, description, typed in obj:
 			name = NamePart(name)
-			description = DescriptionPart(description)
+			description = DescriptionPart(description, dotify=False)
 			typed = TypedDocs(typed)
 			self.data.append((name, description, typed))
 	def to_markdown(self):
@@ -957,19 +1013,37 @@ def check(docs):
 def report(variant, docs):
 	"dump it in a layout"
 	data = {}
+	sections = {}
+
 	for class_name, class_details in docs['classes'].items():
-		data[class_name] = {}
 		count = 0
+		section = None
+		data[class_name] = {}
+
+		if not isinstance(class_details["base"][class_name], dict):
+			section = class_details["base"][class_name].section
+
+		if section:
+			if section.get() not in sections:
+				sections[section.get()] = []
+			sections[section.get()].append(class_name)
+		elif class_name not in sections:
+			sections[class_name] = []
+
 		for type_doc, type_details in class_details.items():
 			data[class_name][type_doc] = {}
+
 			for item, item_details in type_details.items():
 				if isinstance(item_details, dict):
 					data[class_name][type_doc][item] = item_details
 				else:
 					data[class_name][type_doc][item] = item_details.to_dict()
+
 				if type_doc != 'base':
 					count += len(data[class_name][type_doc].keys())
+
 	if variant == 'json':
+		data["_sections"] = sections
 		print(json.dumps(data))
 	elif variant == 'exampletest':
 		code = ''
