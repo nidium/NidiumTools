@@ -684,7 +684,7 @@ class Dep:
             self.linkDir = {"src": os.path.join("." + cache["config"], self.name), "dest": self.name}
             self.extractDir = self.linkDir['src']
             exists = os.path.exists(self.extractDir)
-            if cache["new"] and not exists:
+            if cache["new"]:
                 Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
                 self.needDownload = True
             elif not exists:
@@ -955,11 +955,11 @@ class Deps:
             with Utils.Chdir(destination):
                 if self.tag:
                     Utils.run("git checkout tags/" + self.tag)
-                if self.branch:
-                    Utils.run("git checkout " + self.branch)
-
-                if self.revision:
+                elif self.revision:
                     Utils.run("git checkout " + self.revision)
+                elif self.branch:
+                    Utils.run("git checkout " + self.branch)
+                    Utils.run("git pull origin " + self.branch)
 
     @staticmethod
     def _process():
