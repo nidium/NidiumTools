@@ -951,16 +951,16 @@ class Deps:
         def download(self, destination):
             if not os.path.isdir(destination):
                 Utils.run("git clone %s %s" % (self.location, destination))
+            else:
+                Utils.run("git fetch --all")
 
             with Utils.Chdir(destination):
                 if self.tag:
-                    Utils.run("git fetch --tags")
                     Utils.run("git checkout tags/" + self.tag)
                 elif self.revision:
                     Utils.run("git checkout " + self.revision)
                 elif self.branch:
-                    Utils.run("git checkout " + self.branch)
-                    Utils.run("git pull origin " + self.branch)
+                    Utils.run("git checkout --track origin/" + self.branch)
 
     @staticmethod
     def _process():
