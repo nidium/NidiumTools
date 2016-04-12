@@ -54,7 +54,7 @@ src/NativeASCII.h:6	Whitespace must follow a comma
 ...
 The code got a score of 4.5.
 ```
- 
+
 ## Dokumentor
 
 Simple, but effective way to for the developer to keep the documentation and 
@@ -101,4 +101,32 @@ __Parameters__:
 
 data	'string', 'ArrayBuffer'	false	The data to send out.
 
+```
+
+## createModule.py
+
+Tool to assist with boilerplate creation for modules.
+
+
+### Show me the code
+
+```
+./createModule.py --help
+usage: createModule.py [-h] [--configuration --CONFIGURATION] [--verbose]
+                       [--ignore-build --IGNORE-BUILD] [--force --FORCE]
+                       [--force-build --FORCE-BUILD]
+                       [--force-download --FORCE-DOWNLOAD] [--path --PATH]
+                       [--classname --CLASSNAME] [--name --NAME]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --configuration --CONFIGURATION
+  --verbose
+  --ignore-build --IGNORE-BUILD
+  --force --FORCE
+  --force-build --FORCE-BUILD
+  --force-download --FORCE-DOWNLOAD
+  --path --PATH
+  --classname --CLASSNAME
+  --name --NAME         What's the module name
 ```
