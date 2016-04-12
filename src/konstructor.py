@@ -954,6 +954,7 @@ class Deps:
 
             with Utils.Chdir(destination):
                 if self.tag:
+                    Utils.run("git fetch --tags")
                     Utils.run("git checkout tags/" + self.tag)
                 elif self.revision:
                     Utils.run("git checkout " + self.revision)
