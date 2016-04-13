@@ -1,8 +1,8 @@
 #pragma once
 
-#include <NativeJSExposer.h>
+#include <Binding/JSExposer.h>
 
-class NativeJS{classname} : public NativeJSExposer<NativeJS{classname}>
+class NativeJS{classname} : public Nidium::Binding::JSExposer<NativeJS{classname}>
 {{
     public:
         NativeJS{classname}(JS::HandleObject obj, JSContext *cx);

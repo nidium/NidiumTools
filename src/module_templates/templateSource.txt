@@ -1,5 +1,5 @@
-#include <NativeUtils.h>
-#include <NativeJSUtils.h>
+#include <Core/NativeUtils.h>
+#include <Binding/NativeJSUtils.h>
 
 #include "{classname}.h"
 
@@ -14,7 +14,7 @@ static JSClass {classname}_class = {{
 }};
 
 template<>
-JSClass *NativeJSExposer<NativeJS{classname}>::jsclass = &{classname}_class;
+JSClass *Nidium::Binding::JSExposer<NativeJS{classname}>::jsclass = &{classname}_class;
 
 static JSFunctionSpec {classname}_funcs[] = {{
     JS_FN("foobar", native_{classname}_foobar, 2, 0),
@@ -30,7 +30,7 @@ static void {classname}_Finalize(JSFreeOp *fop, JSObject *obj)
 }}
 
 NativeJS{classname}::NativeJS{classname}(JS::HandleObject obj, JSContext *cx) :
-    NativeJSExposer<NativeJS{classname}>(obj, cx)
+    Nidium::Binding::JSExposer<NativeJS{classname}>(obj, cx)
 {{
 
 }}
@@ -43,9 +43,9 @@ NativeJS{classname}::~NativeJS{classname}()
 static bool native_{classname}_foobar(JSContext *cx, unsigned argc, jsval *vp)
 {{
 
-    JSNATIVE_PROLOGUE_CLASS(NativeJS{classname}, &{classname}_class);
+    NIDIUM_JS_PROLOGUE_CLASS(NativeJS{classname}, &{classname}_class);
 
-    NATIVE_CHECK_ARGS("foobar", 1);
+    NIDIUM_JS_CHECK_ARGS("foobar", 1);
     /* CppObj == instance of NativeJS{classname} */
 
     return true;
@@ -90,4 +90,4 @@ static bool registerCallback(JSContext *cx, JS::HandleObject exports) {{
     return true;
 }}
 
-NATIVE_REGISTER_MODULE(registerCallback)
+NIDIUM_JS_REGISTER_MODULE(registerCallback)
