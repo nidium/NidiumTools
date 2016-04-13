@@ -759,6 +759,15 @@ class Dep:
         if not self.needDownload:
             return 
 
+        if os.path.isdir(self.extractDir):
+            if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
+                import shutil
+                Log.info("Removing %s" % (self.extractDir))
+                shutil.rmtree(self.extractDir)
+            else:
+                Log.info("Skipping update of %s" % self.name)
+                return
+
         Log.info("Downloading %s" % self.name)
         Utils.download(self.options["location"], downloadDir=".", destinationDir=self.extractDir)
 
