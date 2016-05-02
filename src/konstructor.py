@@ -599,7 +599,7 @@ class Utils:
         u = urllib2.urlopen(url)
         f = open(os.path.join(downloadDir, file_name), "wb")
         meta = u.info()
-        file_size = int(meta.getheaders("Content-Length")[0])
+        #file_size = int(meta.getheaders("Content-Length")[0])
 
         file_size_dl = 0
         block_sz = 8192
