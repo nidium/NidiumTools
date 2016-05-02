@@ -88,18 +88,19 @@ class Tests:
 
     @staticmethod
     def run():
-        success = True
-
-        for test in Tests._tests:
-            Log.debug("Running tests suite : %s" % (test))
-            code, output = Utils.run(test, verbose=True, failExit=False)
-            if code != 0:
-                success = False
-
         if len(Tests._tests) == 0:
             Log.debug("No Tests defined")
             return False
-
+        success = True
+        for cmd in Tests._tests:
+            dir_name = None
+            if isinstance(cmd, tuple):
+                dir_name = cmd[1]
+                cmd = cmd[0]
+            Log.debug("Running tests suite : %s" % (cmd))
+            code, output = Utils.run(cmd, verbose=True, failExit=False, cwd=dir_name)
+            if code != 0:
+                success = False
         return success
 
     @staticmethod
@@ -453,20 +454,22 @@ class Utils:
 
         Log.debug("Executing :" + cmd)
 
-        displaySpinner = True
-        stdin = stdout = stderr = None 
-        failExit = True
+        dir_name = None
+        if "cwd" in kwargs:
+            dir_name = kwargs["cwd"]
 
+        stdin = stdout = stderr = None 
         if "stdin" in kwargs:
             stdin = kwargs["stdin"]
 
+        failExit = True
         if "failExit" in kwargs:
             failExit = kwargs["failExit"]
 
         if "returnOutput" in kwargs:
             stdout = stderr = subprocess.PIPE
 
-        child = subprocess.Popen(cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr)
+        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr)
 
         output, error = child.communicate()
         code = child.returncode
