@@ -2,10 +2,10 @@
 
 #include <Binding/JSExposer.h>
 
-class NativeJS{classname} : public Nidium::Binding::JSExposer<NativeJS{classname}>
+class JS{classname} : public Nidium::Binding::JSExposer<JS{classname}>
 {{
     public:
-        NativeJS{classname}(JS::HandleObject obj, JSContext *cx);
-        virtual ~NativeJS{classname}();
+        JS{classname}(JS::HandleObject obj, JSContext *cx);
+        virtual ~JS{classname}();
     private:
 }};

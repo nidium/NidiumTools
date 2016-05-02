@@ -3,8 +3,8 @@
         'target_name': '{0}',
         'type': 'shared_library',
         'dependencies': [
-            '<(native_nativejscore_path)/gyp/nativejscore.gyp:nativejscore-includes', 
-            '<(native_network_path)/gyp/network.gyp:nativenetwork-includes'
+            '<(nidium_nidiumcore_path)/gyp/nidiumcore.gyp:nidiumcore-includes', 
+            '<(nidium_network_path)/gyp/network.gyp:network-includes'
         ],
         'include_dirs': [
             '<(third_party_path)/'
