@@ -13,9 +13,6 @@ JSCORE_PATH=$SERVER_PATH/nativejscore
 # {{{ Todo
 # * move libapenetwork to another location (third-party or in src?)
 # * https://github.com/nidium/NativeJSCore/pull/40
-# * https://github.com/nidium/NativeServer/pull/16
-# * https://github.com/nidium/NativeServer/pull/15
-# * https://github.com/nidium/NativeServer/pull/12
 # * remove https://github.com/nidium/NativeStudio/blob/master/gyp/osx/incbuild.sh
 # * move the externals to third-party
 # * change configure scripts and configs (third-party path, configuration )
@@ -26,10 +23,13 @@ JSCORE_PATH=$SERVER_PATH/nativejscore
 # * build server --unit-test --assume-yes
 # * build studio --unit-test --assume-yes
 # * change buildbot settings
+# * src/Binding/JSConsole.cpp: remove '#if 0' around the for the server parts
 # * namespace modules
 # * change kontructor path for --module
 # * change NativeTools/src/createModule.py for new module path
 # * check README.md
+# * create ycm_extra.conf
+# * create tags.sh
 # * commit
 # * new repo on github
 # * push to github
@@ -92,7 +92,6 @@ cp -R $STUDIO_PATH/app/*          src/App/
 cp -R $STUDIO_PATH/interface/*    src/Interface/
 #todo external
 #todo change include headers with 'sed -i'
-cp    $SERVER_PATH/src/Binding/*  src/Binding/
 cp    $SERVER_PATH/src/Server/*   src/Server/
 cp    $SERVER_PATH/src/App/*      src/App/
 #todo external
@@ -115,9 +114,9 @@ cp    $SERVER_PATH/gyp/common.gypi gyp/server_common.gypi
 cp    $SERVER_PATH/gyp/config.gypi gyp/server_config.gypi
 cp    $JSCORE_PATH/gyp/common.gypi gyp/jscore_common.gypi
 #todo merge the 3 configure files
-cp    $STUDIO_PATH/configure      src/configure_studio
-cp    $SERVER_PATH/configure      src/configure_server
-cp    $JSCORE_PATH/configure      src/configure_nidiumcore
+cp    $STUDIO_PATH/configure      configure_studio
+cp    $SERVER_PATH/configure      configure_server
+cp    $JSCORE_PATH/configure      configure_nidiumcore
 # }}}
 
 # {{{ tools
