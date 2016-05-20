@@ -916,6 +916,8 @@ class Deps:
             Log.debug("Importing konstruct dependency " + self.name)
 
             path, file = os.path.split(self.location)
+            if path == "":
+                path = "./"
             # Since dependency can be nested in directories we need to chdir
             with Utils.Chdir(path):
                 try:
