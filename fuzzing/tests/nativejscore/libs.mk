@@ -1,3 +1,7 @@
+# Copyright 2016 Nidium Inc. All rights reserved.
+# Use of this source code is governed by a MIT license
+# that can be found in the LICENSE file.
+
 include ../../../network/libs.mk
 
 CC_FLAGS += '-DNATIVE_VERSION_STR="0.1"' '-DNATIVE_BUILD="10eaca09dfc4b7e4cea06b72a3f2f5b59cb3a22e"' '-DNATIVE_NO_PRIVATE_DIR' '-DNATIVE_NO_FORK' '-D__STDC_LIMIT_MACROS' '-DJSGC_USE_EXACT_ROOTING' 

@@ -1,5 +1,10 @@
-import sys,os
+#!/usr/bin/env python2.7
 
+# Copyright 2016 Nidium Inc. All rights reserved.
+# Use of this source code is governed by a MIT license
+# that can be found in the LICENSE file
+
+import sys,os
 from pprint import pprint
 
 LOG_FILE = open('./konstruct.log', 'w')
