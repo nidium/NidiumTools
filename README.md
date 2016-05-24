@@ -6,7 +6,7 @@ Contents:
 
  * Konstructor: tool to manage dependencies and build configurations
  * Styleguidor: tool to rate the c/c++ code
- * Dokumentor:	tool to keep the documentation, examples and code in sync.
+ * Dokumentor:  tool to keep the documentation, examples and code in sync.
 
 ## Konstructor
 
@@ -50,7 +50,7 @@ And by pointing `src/styleguidor.py` to the file's directory it could create:
 
 ```
 ...
-src/NativeASCII.h:6	Whitespace must follow a comma
+src/NativeASCII.h:6 Whitespace must follow a comma
 ...
 The code got a score of 4.5.
 ```
@@ -72,11 +72,11 @@ You basically write python code like this:
 ```
 from dokumentor import *
 FunctionDoc( "HTTPRequest.write", "Respond to a client that made a request to the webserver",
-	[ SeeDoc( "HTTPListener" ), SeeDoc( "HTTPRequest.write"), SeeDoc( "HTTPRequest.end" ), SeeDoc( "HTTPRequest.writeHead" ) ],
-	NO_Examples,
-	IS_Dynamic, IS_Public, IS_Fast,
-	[ ParamDoc( "data", "The data to send out", "string|ArrayBuffer", NO_Default, IS_Obligated ) ],
-	NO_Returns
+    [ SeeDoc( "HTTPListener" ), SeeDoc( "HTTPRequest.write"), SeeDoc( "HTTPRequest.end" ), SeeDoc( "HTTPRequest.writeHead" ) ],
+    NO_Examples,
+    IS_Dynamic, IS_Public, IS_Fast,
+    [ ParamDoc( "data", "The data to send out", "string|ArrayBuffer", NO_Default, IS_Obligated ) ],
+    NO_Returns
 );
 ```
 
@@ -99,7 +99,7 @@ __HTTPRequest.writeHead__
 
 __Parameters__:
 
-data	'string', 'ArrayBuffer'	false	The data to send out.
+data    'string', 'ArrayBuffer'    false    The data to send out.
 
 ```
 
