@@ -191,11 +191,13 @@ class DefaultPart(DocPart):
         >>> a.get()
         '2222'
         """
+
         #TODO: link this default with the FieldDoc/ParamDoc type
         if value is None or isinstance(value, int) or isinstance(value, str):
             self.data = value
         else:
-            raise TypeError(value + "is not of NoneType, integer, or string")
+            raise TypeError(str(value) + " is not of NoneType, integer, or string")
+
     def __str__(self):
         return str(self.data)
 
@@ -272,7 +274,7 @@ class TechnicalDoc(BasicDoc):
         self.name = NamePart(name)
         typed = type(self).__name__
         class_name = self.name.get()
-                entry_name = self.name.get()
+        entry_name = self.name.get()
 
         #todo refractor this whole 'typed' thing: https://xkcd.com/1421/
         if typed == 'NamespaceDoc' or typed == 'ClassDoc':
@@ -289,8 +291,8 @@ class TechnicalDoc(BasicDoc):
 
         if typed == 'EventDoc':
             key = 'events'
-                        # Store the name of the event instead of Class.event
-                        entry_name = entry_name[entry_name.index('.') + 1:]
+            # Store the name of the event instead of Class.event
+            entry_name = entry_name[entry_name.index('.') + 1:]
         elif typed == 'FieldDoc':
             key = 'properties'
         elif typed == 'FunctionDoc':
@@ -943,16 +945,21 @@ class ObjectDoc(BasicDoc):
         self.sees = self.assure_list_of_type(obj, "Object", tuple)
         self.data = []
         self.is_array = is_array
-        for name, description, typed in obj:
-            name = NamePart(name)
-            description = DescriptionPart(description, dotify=False)
-            typed = TypedDocs(typed)
-            self.data.append((name, description, typed))
+        for tpl in obj:
+            name = NamePart(tpl[0])
+            description = DescriptionPart(tpl[1], dotify=False)
+            typed = TypedDocs(tpl[2])
+            default = DefaultPart()
+            if len(tpl) > 3:
+                default = DefaultPart(tpl[3])
+
+            self.data.append((name, description, typed, default))
+
     def to_markdown(self):
         """Output prepared for in markdown format."""
         lines = ""
         data = []
-        for name, description, typed in self.data:
+        for name, description, typed, default in self.data:
             types = []
             for tpy in typed:
                 if isinstance(tpy, list):
@@ -969,7 +976,7 @@ class ObjectDoc(BasicDoc):
     def to_dict(self):
         """Prepare a normal interface to export data."""
         details = []
-        for name, description, typed in self.data:
+        for name, description, typed, default in self.data:
             types = []
             for tpy in typed:
                 if isinstance(tpy, list):
@@ -978,7 +985,7 @@ class ObjectDoc(BasicDoc):
                     types.append(tpy.to_dict())
                 else:
                     types.append(tpy.get())
-            details.append({'name': name.get(), 'description': description.get(), 'typed': types})
+            details.append({'name': name.get(), 'description': description.get(), 'typed': types, 'default': default})
         data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
         if self.is_array:
             data = [data]
