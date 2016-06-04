@@ -713,6 +713,8 @@ class Dep:
         elif not self.needBuild:
             if cache["new"]:
                 Log.debug("Need build, because configuration for this dep is new")
+                if "onNewConfig" in self.options:
+                    self.options["build"] = self.options["onNewConfig"] + self.options["build"]
                 self.needBuild = True
             elif "outputs" in self.options:
                 # If we don't have any configuration change, make sure that the outputs 
