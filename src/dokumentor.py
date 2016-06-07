@@ -985,7 +985,7 @@ class ObjectDoc(BasicDoc):
                     types.append(tpy.to_dict())
                 else:
                     types.append(tpy.get())
-            details.append({'name': name.get(), 'description': description.get(), 'typed': types, 'default': default})
+            details.append({'name': name.get(), 'description': description.get(), 'typed': types, 'default': default.get()})
         data = {'name': 'JS Object', 'details': details, 'type': 'Object'}
         if self.is_array:
             data = [data]
