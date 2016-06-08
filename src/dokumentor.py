@@ -14,6 +14,7 @@ Such as embedding javascript (spidermonkey engine), where functionality of the h
 This tool tries to make it easier
 """
 import sys, os, imp, json
+from pprint import pprint
 
 DOC = {'classes': {}, 'unknown_types': []}
 
@@ -45,8 +46,10 @@ class DocPart():
     "Root class for transformations"
     def __init__(self):
         self.data = None
+
     def __str__(self):
         return self.data
+
     def get(self):
         return self.__str__()
 
@@ -131,7 +134,7 @@ class DescriptionPart(DocPart):
         if isinstance(text, str):
             if len(text) > 0 and text[-1] != '.':
                 text += '.'
-        return text.title()
+        return text
 
 class BoolPart(DocPart):
     def __init__(self, value):
@@ -146,11 +149,13 @@ class BoolPart(DocPart):
         if not isinstance(value, bool):
             raise TypeError(str(value) + " is not a boolean")
         self.data = value
+
     def __str__(self):
         """true if so, etc."""
         if self.data:
             return 'true'
         return 'false'
+
     def value(self):
         return self.data
 
@@ -177,6 +182,22 @@ class CodePart(DocPart):
         if not isinstance(code, str):
             raise TypeError(code + " is not a string")
         self.data = code.strip()
+
+class ProductPart(DocPart):
+    def __init__(self, products):
+        if isinstance(products, list) or products is None:
+            self.data = products 
+        else:
+            raise TypeError(str(products) + " must be a list or None")
+
+    def __str__(self):
+        if self.data:
+            return ", ".join(self.data)
+        else:
+            return ""
+
+    def get(self):
+        return self.data;
 
 class DefaultPart(DocPart):
     def __init__(self, value=None):
@@ -312,10 +333,17 @@ class TechnicalDoc(BasicDoc):
         self.description = DescriptionPart(description, dotify=dotifyDescription)
 
         if add:
-            DOC['classes'][class_name] = {'events': {}, 'properties': {}, 'methods': {}, 'constructors': {}, 'base': {class_name: {}}}
+            DOC['classes'][class_name] = {
+                'events': {}, 
+                'properties': {}, 
+                'methods': {}, 
+                'constructors': {}, 
+                'base': {class_name: {}}
+            }
 
         if key != '':
             DOC['classes'][class_name][key][entry_name] = self
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(TechnicalDoc, self).to_dict()
@@ -326,7 +354,7 @@ class TechnicalDoc(BasicDoc):
 class DetailDoc(TechnicalDoc):
     """An abstract class, that is just a convinient constructor and formatter. """
     #@TODO: Since, deprecated
-    def __init__(self, name, description, sees=NO_Sees, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public):
+    def __init__(self, name, description, sees=NO_Sees, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, products=None):
         """
         >>> a = DetailDoc("Detail", "Devil is in the detail",NO_Sees, NO_Examples, IS_Static, IS_Private)
         >>> a.is_public.value()
@@ -336,14 +364,19 @@ class DetailDoc(TechnicalDoc):
         True
         """
         super(DetailDoc, self).__init__(name, description)
+
         if sees is None:
             sees = []
+
         if examples is None:
             examples = []
+
         self.sees = self.assure_list_of_type(sees, "see", SeeDoc)
         self.examples = self.assure_list_of_type(examples, "examples", ExampleDoc)
         self.is_public = BoolPart(is_public)
         self.is_static = BoolPart(is_static)
+        self.products = ProductPart(products)
+
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
         lines = ""
@@ -361,6 +394,7 @@ class DetailDoc(TechnicalDoc):
                 lines += example.to_markdown()
         lines += "\n"
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(DetailDoc, self).to_dict()
@@ -368,6 +402,9 @@ class DetailDoc(TechnicalDoc):
         data['is_static'] = self.is_static.value()
         data['sees'] = []
         data['examples'] = []
+
+        if self.products.get():
+            data['products'] = self.products.get()
 
         if len(self.sees) > 0:
             for see in self.sees:
@@ -381,7 +418,7 @@ class DetailDoc(TechnicalDoc):
 class NamespaceDoc(DetailDoc):
     """This handles 'namespaces, witch are placeholders/castrated classes."""
 
-    def __init__(self, name, description, sees=None, examples=NO_Examples, section=None):
+    def __init__(self, name, description, sees=None, examples=NO_Examples, section=None, products=None):
         """
         >>> a = NamespaceDoc('Math', 'Math namespace', NO_Sees, NO_Examples)
         >>> type(a.examples)
@@ -398,7 +435,7 @@ class NamespaceDoc(DetailDoc):
         True
         """
 
-        super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public)
+        super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public, products=products)
         TypedPart.register_name(self.name.get())
 
         self.section = NamePart(section) if section else None
@@ -421,7 +458,7 @@ class NamespaceDoc(DetailDoc):
 class ClassDoc(DetailDoc):
     "This handles classes"
 
-    def __init__(self, name, description, sees=None, examples=NO_Examples, inherrits=None, extends=None, section=None):
+    def __init__(self, name, description, sees=None, examples=NO_Examples, inherrits=None, extends=None, section=None, products=None):
         """
         >>> a = ClassDoc('Console', 'Log interface', NO_Sees, NO_Examples, NO_Inherrits, NO_Extends)
         >>> type(a.inherrits)
@@ -445,7 +482,7 @@ class ClassDoc(DetailDoc):
         'Pord'
         """
 
-        super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public)
+        super(self.__class__, self).__init__(name, description, sees, examples, is_static=IS_Static, is_public=IS_Public, products=products)
         TypedPart.register_name(self.name.get())
 
         if inherrits is None:
@@ -498,7 +535,7 @@ class FunctionDoc(DetailDoc):
     """
     This handles functions and methods
     """
-    def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_slow=IS_Fast, params=NO_Params, returns=NO_Returns):
+    def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_slow=IS_Fast, params=NO_Params, returns=NO_Returns, products=None):
         """
         >>> a = FunctionDoc('console.log', 'Log shit', NO_Sees, NO_Examples, IS_Dynamic, IS_Public, IS_Slow, [ParamDoc('text', 'The Text', 'string', "")])
         >>> a.params[0].default.get()
@@ -525,13 +562,14 @@ class FunctionDoc(DetailDoc):
         >>> a.returns.typed[1].get()
         'float'
         """
-        super(FunctionDoc, self).__init__(name, description, sees, examples, is_static, is_public)
+        super(FunctionDoc, self).__init__(name, description, sees, examples, is_static, is_public, products=products)
         self.is_constructor = BoolPart(False)
         self.is_slow = BoolPart(is_slow)
         if params is None:
             params = []
         self.returns = returns
         self.params = self.assure_list_of_type(params, "params", ParamDoc)
+
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
         lines = super(FunctionDoc, self).to_markdown()
@@ -545,6 +583,7 @@ class FunctionDoc(DetailDoc):
         if self.returns:
             lines += "\n__Returns__:" + self.returns.to_markdown() + "\n"
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(FunctionDoc, self).to_dict()
@@ -590,7 +629,7 @@ class FieldDoc(DetailDoc):
     """
     This handles fields, also known as properties
     """
-    def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_readonly=IS_Readonly, typed=NO_Typed, default=NO_Default):
+    def __init__(self, name, description, sees=None, examples=NO_Examples, is_static=IS_Dynamic, is_public=IS_Public, is_readonly=IS_Readonly, typed=NO_Typed, default=NO_Default, products=None):
         """
         >>> a = FieldDoc('age', "The persons age", NO_Sees, NO_Examples, IS_Dynamic, IS_Static, IS_Readonly, 'int', NO_Default)
         >>> type(a)
@@ -609,10 +648,11 @@ class FieldDoc(DetailDoc):
         >>> a.is_readonly.value()
         False
         """
-        super(self.__class__, self).__init__(name, description, sees, examples, is_static, is_public)
+        super(self.__class__, self).__init__(name, description, sees, examples, is_static, is_public, products=products)
         self.is_readonly = BoolPart(is_readonly)
         self.default = DefaultPart(default)
         self.typed = TypedDocs(typed)
+
     def to_markdown(self):
         """Output prepared in markdown format."""
         lines = ""
@@ -624,6 +664,7 @@ class FieldDoc(DetailDoc):
                 types.append(typed.get())
         lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_readonly.get() + "\t" + self.description.get()
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(self.__class__, self).to_dict()
@@ -1026,22 +1067,44 @@ def report(variant, docs):
     "dump it in a layout"
     data = {}
     sections = {}
+    classLookup = {}
+
+    # First create a lookup table with all namespace or top level class
+    # and populate the sections list
+    for class_name, class_details in docs['classes'].items():
+        klass = class_details["base"][class_name]
+
+        if isinstance(klass, dict):
+            continue
+
+        classLookup[class_name] = klass
+
+        section = class_details["base"][class_name].section
+        if section:
+            section = section.get()
+            if section not in sections:
+                sections[section] = []
+
+            sections[section].append(class_name)
+        elif class_name not in sections:
+            sections[class_name] = []
 
     for class_name, class_details in docs['classes'].items():
         count = 0
         section = None
         data[class_name] = {}
+        klass = class_details["base"][class_name]
 
-        if not isinstance(class_details["base"][class_name], dict):
+        if not isinstance(klass, dict):
             section = class_details["base"][class_name].section
+            if section:
+                section = section.get()
 
-        if section:
-            if section.get() not in sections:
-                sections[section.get()] = []
-            sections[section.get()].append(class_name)
-        elif class_name not in sections:
-            sections[class_name] = []
-
+        if klass.products.get() == None:
+            # No products defined for this item, lets check if the section has it
+            if section in classLookup:
+                klass.products = classLookup[section].products
+  
         for type_doc, type_details in class_details.items():
             data[class_name][type_doc] = {}
 
@@ -1050,6 +1113,9 @@ def report(variant, docs):
                     data[class_name][type_doc][item] = item_details
                 else:
                     data[class_name][type_doc][item] = item_details.to_dict()
+
+                #if "products" not in data[class_name][type_doc][item]:
+                #    data[class_name][type_doc][item]["products"] = klass.products.get()
 
                 if type_doc != 'base':
                     count += len(data[class_name][type_doc].keys())
