@@ -65,9 +65,9 @@ class NamePart(DocPart):
             raise TypeError(name + " is not a string")
         if '|' in name:
             raise TypeError(name + " may not have a '|'")
-        if len(name.strip()) < 2:
+        if len(name.strip()) < 2 and name not in ["x", "y", "z"]:
             raise TypeError(name + " is too short for a good name.")
-        if name.lower() in ['foo', 'bar', 'foobar']:
+        elif name.lower() in ['foo', 'bar', 'foobar']:
             raise TypeError(name + " is not a good name.")
         self.data = name.strip()
 
@@ -85,7 +85,7 @@ class TypedPart(NamePart):
             self.data = name.strip()
             if '|' in self.data:
                 raise TypeError(name + " may not have a '|'")
-            elif len(self.data) < 2:
+            elif len(self.data) < 2 and name not in ["x", "y", "z"]:
                 raise TypeError(name + " is too short for a good name.")
         else:
             raise TypeError(name + " is not a string")
@@ -116,7 +116,7 @@ class DescriptionPart(DocPart):
         if not isinstance(description, str):
             raise TypeError(description + " is not a string")
 
-        if len(description.strip()) < 3:
+        if len(description.strip()) < 3 and description not in ["?", "??"]:
             raise TypeError(description + " is too short for a good description.")
 
         self.data = (self.dotstr(description) if dotify else description).strip()
