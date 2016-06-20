@@ -561,7 +561,7 @@ class Utils:
             tar.close()
         else:
             # Single file downloaded, not an archive
-            # Nothin to do
+            # Nothing to do
             Log.info("Nothing to extract for " + path)
             return
 
