@@ -234,9 +234,14 @@ class BasicDoc(object):
 
         """
         pass
+
+    def get_key(self):
+        return "base"
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         return {}
+
     def assure_list_of_type(self, list_of, variable_name, cls):
         """Assure that the variable variable_name as parameter 'list_of' is a list of class cls
         >>> a = BasicDoc()
@@ -303,7 +308,7 @@ class TechnicalDoc(BasicDoc):
         elif '.' in self.name.get():
             class_name = self.name.get()[:self.name.get().index('.')]
 
-        key = ''
+        key = self.get_key()
         add = False
         dotifyDescription = True 
 
@@ -311,24 +316,13 @@ class TechnicalDoc(BasicDoc):
             add = True
 
         if typed == 'EventDoc':
-            key = 'events'
             # Store the name of the event instead of Class.event
             entry_name = entry_name[entry_name.index('.') + 1:]
-        elif typed == 'FieldDoc':
-            key = 'properties'
-        elif typed == 'FunctionDoc':
-            key = 'methods'
-        elif typed == 'ConstructorDoc':
-            key = 'constructors'
-        elif typed == 'NamespaceDoc' or typed == 'ClassDoc':
-            key = 'base'
         elif typed == 'ReturnDoc' or typed == 'ParamDoc' or typed == 'CallbackDoc':
             add = False
             dotifyDescription = False
         elif typed == 'DetailDoc' or typed == 'BasicDoc' or typed == 'TechnicalDoc':
             add = False
-        else:
-            raise ValueError('A very specific bad thing happened')
 
         self.description = DescriptionPart(description, dotify=dotifyDescription)
 
@@ -337,12 +331,16 @@ class TechnicalDoc(BasicDoc):
                 'events': {}, 
                 'properties': {}, 
                 'methods': {}, 
+                'static_methods': {}, 
                 'constructors': {}, 
                 'base': {class_name: {}}
             }
 
-        if key != '':
+        if key:
             DOC['classes'][class_name][key][entry_name] = self
+
+    def get_key(self):
+        return None
 
     def to_dict(self):
         """Prepare a normal interface to export data."""
@@ -363,8 +361,6 @@ class DetailDoc(TechnicalDoc):
         >>> a.is_static.value()
         True
         """
-        super(DetailDoc, self).__init__(name, description)
-
         if sees is None:
             sees = []
 
@@ -376,6 +372,11 @@ class DetailDoc(TechnicalDoc):
         self.is_public = BoolPart(is_public)
         self.is_static = BoolPart(is_static)
         self.products = ProductPart(products)
+
+        super(DetailDoc, self).__init__(name, description)
+    
+    def get_key(self):
+        return None
 
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
@@ -440,6 +441,9 @@ class NamespaceDoc(DetailDoc):
 
         self.section = NamePart(section) if section else None
 
+    def get_key(self):
+        return "base"
+
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
 
@@ -494,6 +498,9 @@ class ClassDoc(DetailDoc):
         self.inherrits = OopDocs(inherrits)
         self.extends = OopDocs(extends)
         self.section = NamePart(section) if section else None
+
+    def get_key(self):
+        return "base"
 
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
@@ -570,6 +577,9 @@ class FunctionDoc(DetailDoc):
         self.returns = returns
         self.params = self.assure_list_of_type(params, "params", ParamDoc)
 
+    def get_key(self):
+        return "static_methods" if self.is_static.value() else "methods"
+
     def to_markdown(self):
         """Output prepared for copy and pasting to nidiums backoffice website"""
         lines = super(FunctionDoc, self).to_markdown()
@@ -618,9 +628,14 @@ class ConstructorDoc(FunctionDoc):
         super(self.__class__, self).__init__(name, description, sees, examples, IS_Dynamic, IS_Public, IS_Fast, params, returns)
         self.is_constructor = BoolPart(True)
         TypedPart.register_name_part(self.name.get())
+
+    def get_key(self):
+        return "constructors"
+
     def to_markdown(self):
         """Output prepared for in markdown format."""
         return super(self.__class__, self).to_markdown()
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         return super(self.__class__, self).to_dict()
@@ -652,6 +667,9 @@ class FieldDoc(DetailDoc):
         self.is_readonly = BoolPart(is_readonly)
         self.default = DefaultPart(default)
         self.typed = TypedDocs(typed)
+
+    def get_key(self):
+        return "properties"
 
     def to_markdown(self):
         """Output prepared in markdown format."""
@@ -703,6 +721,10 @@ class ReturnDoc(TechnicalDoc):
 """
         super(self.__class__, self).__init__("returnVariable", description)
         self.typed = TypedDocs(typed)
+
+    def get_key(self):
+        return None
+
     def to_markdown(self):
         """Output prepared in markdown format."""
         lines = ""
@@ -714,6 +736,7 @@ class ReturnDoc(TechnicalDoc):
                 types.append(typed.get())
         lines += "'" +  "', '".join(types) + "'\t" + self.description.get()
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(self.__class__, self).to_dict()
@@ -763,6 +786,10 @@ class ParamDoc(TechnicalDoc):
         self.default = DefaultPart(default)
         self.is_optional = BoolPart(is_optional)
         self.typed = TypedDocs(typed)
+
+    def get_key(self):
+        return None
+
     def to_markdown(self):
         """Output prepared in markdown format."""
         lines = ''
@@ -774,6 +801,7 @@ class ParamDoc(TechnicalDoc):
                 types.append(typed.get())
         lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_optional.get() + "\t" + self.description.get()
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(ParamDoc, self).to_dict()
@@ -804,6 +832,10 @@ class EventDoc(FunctionDoc):
         if params is None:
             params = []
         self.params = self.assure_list_of_type(params, "params", ParamDoc)
+
+    def get_key(self):
+        return "events"
+
     def to_markdown(self):
         """Output prepared in markdown format."""
         if self.params > 0:
@@ -812,6 +844,7 @@ class EventDoc(FunctionDoc):
                 lines += param.to_markdown()
         return super(self.__class__, self).to_markdown()
     def to_dict(self):
+
         """Prepare a normal interface to export data."""
         data = super(self.__class__, self).to_dict()
         data['params'] = []
@@ -848,6 +881,10 @@ class CallbackDoc(ParamDoc):
         if params is None:
             params = []
         self.params = self.assure_list_of_type(params, "params", ParamDoc)
+
+    def get_key(self):
+        return None
+
     def to_markdown(self):
         """Output prepared in markdown format."""
         lines = ''
@@ -867,6 +904,7 @@ class CallbackDoc(ParamDoc):
             extra += param.name.get() + "\t'" + "', '".join(types) + "'\t" + param.is_optional.get() + "\t" + param.description.get() + "\n"
         lines += self.name.get() + "\t" + "'callback'" + "\t" + self.is_optional.get() + "\t" + self.description.get() + extra
         return lines
+
     def to_dict(self):
         """Prepare a normal interface to export data."""
         data = super(self.__class__, self).to_dict()
