@@ -299,54 +299,71 @@ class Platform:
 
 # {{{ ConfigCache
 class ConfigCache:
+    CONFIG_INSTANCE = {}
+
     def __init__(self, f):
         self.file = f;
 
-    def update(self, key, entry):
-        configCache = ConfigCache._read(self.file)
+        if self.file in ConfigCache.CONFIG_INSTANCE:
+            self.configCache = ConfigCache.CONFIG_INSTANCE[self.file]
+        else:
+            print(self.file)
+            self.configCache = ConfigCache._read(self.file)
+            ConfigCache.CONFIG_INSTANCE[self.file] = self.configCache
+
+        if not self.configCache:
+            self.configCache = {}
+
+    def set(self, key, value):
+        self.configCache[key] = value
+        self._updateCacheFile();
+
+    def get(self, key):
+        return self.configCache.get(key, None)
+
+    def setConfig(self, key, entry):
         eHash = entry["hash"]
         eConfig = entry["config"]
 
-        if configCache is None or key not in configCache:
+        if key not in self.configCache:
             # entry does not exists in cache
-            if configCache is None:
-                configCache = {key: {eHash: eConfig}}
-            else:
-                configCache[key] = {eHash: eConfig}
-
-            ConfigCache._write(configCache, self.file)
+            self.configCache[key] = {eHash: eConfig}
         else:
-            if eHash not in configCache[key]:
+            if eHash not in self.configCache[key]:
                 # Cache for the data is new (different config)
 
                 # We can only have one cache entry per config per dep
                 # find and remove duplicate
-                for h in list(configCache[key].keys()):
-                    cachedConf = configCache[key][h]
+                for h in list(self.configCache[key].keys()):
+                    cachedConf = self.configCache[key][h]
                     if h != eHash and cachedConf == eConfig:
-                        del configCache[key][h]
+                        del self.configCache[key][h]
 
-                configCache[key][eHash] = eConfig 
-                ConfigCache._write(configCache, self.file)
+                self.configCache[key][eHash] = eConfig 
             else:
                 # Entry already exists
                 # Nothing to save
                 pass
 
-    def find(self, key, data):
-        configCache = ConfigCache._read(self.file)
+        self._updateCacheFile()
+
+    def getConfig(self, key, data):
         newCacheHash = ConfigCache._generateHash(data)
-        config = "-".join(Konstruct.getConfigs())
+        config = ConfigCache.getConfigStr()
         ret = {"new": True, "hash":  newCacheHash, "config": config}
 
-        if configCache is not None and key in configCache:
-            if newCacheHash in configCache[key]:
-                # data is already found in cache but for another configuration
-                # We just return the previously found matching config
+        if key in self.configCache:
+            if newCacheHash in self.configCache[key]:
+                # Hash exist in cache but for another configuration.
+                # Simply return the matching config (since the hash it's the same)
                 ret["new"] = False
-                ret["config"] = configCache[key][newCacheHash]
+                ret["config"] = self.configCache[key][newCacheHash]
 
         return ret
+
+
+    def _updateCacheFile(self):
+        ConfigCache._write(self.configCache, self.file)
 
     @staticmethod
     def _generateHash(data):
@@ -366,6 +383,10 @@ class ConfigCache:
             return json.loads(open(location, "r").read())
         except:
             return None
+
+    @staticmethod
+    def getConfigStr():
+        return "-".join(Konstruct.getConfigs())
 # }}}
 
 # {{{ Utils
@@ -665,6 +686,7 @@ class Dep:
         self.needDownload = False
         self.needBuild = False
         self.ignoreBuild = False
+        self.configChanged = False
 
         self.linkDir = None
         self.outputFiles = []
@@ -673,7 +695,7 @@ class Dep:
 
         self.downloadConfig = None
         self.buildConfig = None
-        self.cache = ConfigCache("konstruct.cache")
+        self.cache = ConfigCache(os.path.join(ROOT, "third-party", "konstruct.cache"))
 
     def prepare(self):
         Log.debug("Preparing " + self.name)
@@ -686,7 +708,7 @@ class Dep:
 
         # Check if we need to download the dep
         if "location" in self.options:
-            cache = self.cache.find(self.name + "-download", self.options["location"])
+            cache = self.cache.getConfig(self.name + "-download", self.options["location"])
             self.downloadConfig = cache
 
             self.linkDir = {"src": os.path.join("." + cache["config"], self.name), "dest": self.name}
@@ -703,8 +725,14 @@ class Dep:
                 Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
 
         # Define some variables needed for building/symlinking
-        cache = self.cache.find(self.name + "-build", self.options)
+        cache = self.cache.getConfig(self.name + "-build", self.options)
         self.buildConfig = cache
+
+        if self.cache.get(self.name + "-lastbuild-config"):
+            # The current configuration of konstructor is 
+            # different from the last build of this dep
+            self.configChanged = True
+
         self.outputsDir = os.path.join(ROOT, OUTPUT, "third-party", "." + cache["config"])
         Utils.mkdir(self.outputsDir)
 
@@ -713,8 +741,6 @@ class Dep:
         elif not self.needBuild:
             if cache["new"]:
                 Log.debug("Need build, because configuration for this dep is new")
-                if "onNewConfig" in self.options:
-                    self.options["build"] = self.options["onNewConfig"] + self.options["build"]
                 self.needBuild = True
             elif "outputs" in self.options:
                 # If we don't have any configuration change, make sure that the outputs 
@@ -784,7 +810,7 @@ class Dep:
         if self.linkDir:
             # Make the dep directory point to the directory matching the configuration
             Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
-        self.cache.update(self.name + "-download", self.downloadConfig);
+        self.cache.setConfig(self.name + "-download", self.downloadConfig);
 
     def patch(self):
         if "patchs" not in self.options:
@@ -825,8 +851,11 @@ class Dep:
                             cmd += " -jobs " + str(Platform.cpuCount)
                     Utils.run(cmd)
 
+                self.cache.set(self.name + "-lastbuild-config", ConfigCache.getConfigStr())
+
             self.symlinkOutput()
-        self.cache.update(self.name + "-build", self.buildConfig)
+
+        self.cache.setConfig(self.name + "-build", self.buildConfig)
 
     def findOutputs(self):
         import re
@@ -897,6 +926,20 @@ class Dep:
                 Utils.mkdir(destDir)
 
                 if self.needBuild or not os.path.exists(destFile) :
+                    if self.configChanged:
+                        # Config has been changed but the destination file does not exists
+                        # The dependency needs to be rebuilt otherwise we would copy the file 
+                        # from a different configuration
+                        Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
+                            "has not been found.  The last build of the dependency was different " +
+                            "from the current build config (%s). " % (" + ".join(Konstruct.getConfigs())) +
+                            "The dependency will be rebuilt.")
+
+                        with Utils.Chdir(Deps.path):
+                            self.needBuild = True
+                            self.configChanged = False
+                            self.build()
+
                     # New outputs have been generated
                     # Copy them to the build dir 
                     Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
