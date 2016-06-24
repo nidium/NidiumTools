@@ -55,7 +55,7 @@ class Konstruct:
         def decorator(f):
             Konstruct._hooks[name].append(f)
 
-        return decorator 
+        return decorator
 
     @staticmethod
     def _runHook(name, *args):
@@ -123,7 +123,7 @@ class Tests:
 
 # {{{ ComandLine
 from collections import OrderedDict
-from argparse import ArgumentParser 
+from argparse import ArgumentParser
 import types
 class CommandLine:
     optionParser = ArgumentParser()
@@ -171,13 +171,13 @@ class CommandLine:
             action = "store"
             t = str
             prompt = False
-            required = False 
+            required = False
 
             if "required" in kwargs:
                 required = True
 
             if "prompt" in kwargs:
-                prompt = kwargs["prompt"] 
+                prompt = kwargs["prompt"]
                 del kwargs["prompt"]
 
             if "default" in kwargs:
@@ -204,8 +204,8 @@ class CommandLine:
             exists = (name in CommandLine._options and len(CommandLine._options[name]) > 0)
 
             CommandLine._options[name].append({
-                "function": f, 
-                "prompt": prompt, 
+                "function": f,
+                "prompt": prompt,
                 "required": required,
                 "default": default
             })
@@ -280,7 +280,7 @@ import multiprocessing
 class Platform:
     system = platform.system()
     cpuCount = multiprocessing.cpu_count()
-    wordSize = 64 if sys.maxsize > 2**32 else 32 
+    wordSize = 64 if sys.maxsize > 2**32 else 32
 
     @staticmethod
     def setEnviron(*args):
@@ -339,7 +339,7 @@ class ConfigCache:
                     if h != eHash and cachedConf == eConfig:
                         del self.configCache[key][h]
 
-                self.configCache[key][eHash] = eConfig 
+                self.configCache[key][eHash] = eConfig
             else:
                 # Entry already exists
                 # Nothing to save
@@ -484,7 +484,7 @@ class Utils:
         if "cwd" in kwargs:
             dir_name = kwargs["cwd"]
 
-        stdin = stdout = stderr = None 
+        stdin = stdout = stderr = None
         if "stdin" in kwargs:
             stdin = kwargs["stdin"]
 
@@ -702,7 +702,7 @@ class Dep:
         if self.function is not None:
             options = self.function()
             if options is not None:
-                # merge decoration options with the options 
+                # merge decoration options with the options
                 # returned by the decorated function
                 self.options.update(options.items())
 
@@ -729,7 +729,7 @@ class Dep:
         self.buildConfig = cache
 
         if self.cache.get(self.name + "-lastbuild-config"):
-            # The current configuration of konstructor is 
+            # The current configuration of konstructor is
             # different from the last build of this dep
             self.configChanged = True
 
@@ -743,7 +743,7 @@ class Dep:
                 Log.debug("Need build, because configuration for this dep is new")
                 self.needBuild = True
             elif "outputs" in self.options:
-                # If we don't have any configuration change, make sure that the outputs 
+                # If we don't have any configuration change, make sure that the outputs
                 # exists and are more recent than the downloaded/extracted directory
 
                 # Get the time of the directory
@@ -759,9 +759,9 @@ class Dep:
                         Log.debug("Need build %s, because output file %s havn't been found" % (self.name, output["src"]))
                         self.needBuild = True
                         break
-                    # This code have some issues 
+                    # This code have some issues
                     # - It does not detect change made in subdirectories
-                    # - Changing configuration might trigger a rebuild 
+                    # - Changing configuration might trigger a rebuild
                     #   since the outputs could be older than the directory when depdency is rebuilt in another configuration
                     #
                     # Until a better alternative is found, do not check if output is more recent
@@ -780,8 +780,8 @@ class Dep:
                                 Log.debug("Need build, because dep (%s) file %s is more recent than ouput file %s " % (self.name, output["src"], output["file"]))
                                 self.needBuild = True
                         elif dirTime > outFileTime:
-                            Log.debug("Need build, because dep (%s) is more recent than ouput file %s (%s / %s)" % (srcDir, output["file"], 
-                                datetime.datetime.fromtimestamp(dirTime).strftime('%Y-%m-%d %H:%M:%S'), 
+                            Log.debug("Need build, because dep (%s) is more recent than ouput file %s (%s / %s)" % (srcDir, output["file"],
+                                datetime.datetime.fromtimestamp(dirTime).strftime('%Y-%m-%d %H:%M:%S'),
                                 datetime.datetime.fromtimestamp(outFileTime).strftime('%Y-%m-%d %H:%M:%S'),
                             ))
                             self.needBuild = True
@@ -793,7 +793,7 @@ class Dep:
 
     def download(self):
         if not self.needDownload:
-            return 
+            return
 
         if os.path.isdir(self.extractDir):
             if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
@@ -821,7 +821,7 @@ class Dep:
             Utils.patch(self.name, p)
 
     def _getDir(self):
-        newDir = "." 
+        newDir = "."
         if "location" in self.options:
             newDir = self.name
         if "chdir" in self.options:
@@ -887,7 +887,7 @@ class Dep:
                 out = {"copyOnly": False, "found": False, "src": os.path.join(depDir, path, outFile)}
 
                 try:
-                    files = os.listdir(path) 
+                    files = os.listdir(path)
                 except:
                     outputs.append(out)
                     continue
@@ -896,7 +896,7 @@ class Dep:
                     if re.match(name, f):
                         out["found"] = True
                         if rename:
-                            out["file"] = re.sub(name, rename, f) 
+                            out["file"] = re.sub(name, rename, f)
                         elif copy:
                             out["copyOnly"] = True
                             out["file"] = os.path.join("..", output["dest"])
@@ -928,7 +928,7 @@ class Dep:
                 if self.needBuild or not os.path.exists(destFile) :
                     if self.configChanged:
                         # Config has been changed but the destination file does not exists
-                        # The dependency needs to be rebuilt otherwise we would copy the file 
+                        # The dependency needs to be rebuilt otherwise we would copy the file
                         # from a different configuration
                         Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
                             "has not been found.  The last build of the dependency was different " +
@@ -941,7 +941,7 @@ class Dep:
                             self.build()
 
                     # New outputs have been generated
-                    # Copy them to the build dir 
+                    # Copy them to the build dir
                     Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
                     shutil.copyfile(output["src"], destFile)
 
@@ -1090,7 +1090,7 @@ class Deps:
                     AVAILABLE_DEPS[configuration][name] = d
             """
 
-        return decorator 
+        return decorator
 
     @staticmethod
     def setDir(path):
