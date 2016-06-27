@@ -34,6 +34,8 @@ class Konstruct:
         "start": [],
         "preBuild": [],
         "postBuild": [],
+        "preTests": [],
+        "postTests": [],
     }
 
     @staticmethod
@@ -114,10 +116,16 @@ class Tests:
         if count == 0:
             Log.error("Unit tests are missing :(")
         elif Utils.promptYesNo("Build is finished, do you want to run %d tests?" % (count)):
-            if Tests.run():
+            Konstruct._runHook("preTests")
+
+            success = Tests.run()
+
+            if success:
                 Log.success("All test passed \o/")
             else:
                 Log.error("Unit tests failed :(")
+
+            Konstruct._runHook("postTests", success)
 
 # }}}
 
@@ -973,7 +981,12 @@ class Deps:
                 try:
                     imp.load_source(self.name, os.path.realpath(file))
                 except Exception as e:
-                    Utils.exit("Failed to import konstruct dependency %s : %s" % (self.location, e))
+                    import traceback
+
+                    Log.error("Failed to import konstruct dependency %s : %s" % (self.location, e))
+                    traceback.print_exc()
+
+                    Utils.exit()
 
     class Repo:
         def __init__(self, location, revision=None):
