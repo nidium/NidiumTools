@@ -116,7 +116,7 @@ class DescriptionPart(DocPart):
         if not isinstance(description, str):
             raise TypeError(description + " is not a string")
 
-        if len(description.strip()) < 3 and description not in ["?", "??"]:
+        if description and len(description.strip()) < 3 and description not in ["?", "??"]:
             raise TypeError(description + " is too short for a good description.")
 
         self.data = (self.dotstr(description) if dotify else description).strip()
@@ -857,7 +857,7 @@ class CallbackDoc(ParamDoc):
     This handles parameters that are callback-functions/methods.
     These differ because a callback function has parameters that need to be documented as well
     """
-    def __init__(self, name, description, params=NO_Params):
+    def __init__(self, name, description, params=NO_Params, default=NO_Default, is_optional=IS_Obligated):
         """
         >>> a = CallbackDoc('callback', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default)])
         >>> type(a.params)
@@ -877,7 +877,7 @@ class CallbackDoc(ParamDoc):
         >>> len(a.params)
         1
         """
-        super(CallbackDoc, self).__init__(name, description, 'function', NO_Default, IS_Obligated)
+        super(CallbackDoc, self).__init__(name, description, 'function', default, is_optional)
         if params is None:
             params = []
         self.params = self.assure_list_of_type(params, "params", ParamDoc)
@@ -918,7 +918,7 @@ class ExampleDoc(BasicDoc):
     """
     This handles examples
     """
-    def __init__(self, example, lang='javascript'):
+    def __init__(self, example, title="", lang='javascript'):
         """
         >>> a = ExampleDoc('''var a = {} ''')
         >>> a.data.get()
@@ -931,6 +931,7 @@ class ExampleDoc(BasicDoc):
         """
         super(self.__class__, self).__init__()
         self.data = CodePart(example)
+        self.title = DescriptionPart(title)
         self.language = LanguagePart(lang)
     def to_markdown(self):
         """Output prepared for in markdown format."""
@@ -940,6 +941,7 @@ class ExampleDoc(BasicDoc):
         data = super(self.__class__, self).to_dict()
         data['data'] = self.data.get()
         data['language'] = self.language.get()
+        data["title"] = self.language.get()
         return data
 
 class SeeDoc(BasicDoc):
@@ -1025,6 +1027,8 @@ class ObjectDoc(BasicDoc):
         self.data = []
         self.is_array = is_array
         for tpl in obj:
+            if len(tpl) < 3:
+                raise ValueError("ObjectDoc() key/value description expect at least 3 element (name, description, type, [default])")
             name = NamePart(tpl[0])
             description = DescriptionPart(tpl[1], dotify=False)
             typed = TypedDocs(tpl[2])
