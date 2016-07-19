@@ -3,8 +3,8 @@
         'target_name': '{0}',
         'type': 'shared_library',
         'dependencies': [
-            '<(nidium_nidiumcore_path)/gyp/nidiumcore.gyp:nidiumcore-includes', 
-            '<(nidium_network_path)/gyp/network.gyp:network-includes'
+            '<(nidium_src_path)/../gyp/libnidiumcore.gyp:libnidiumcore-includes',
+            '<(nidium_src_path)/libapenetwork/gyp/network.gyp:network-includes'
         ],
         'include_dirs': [
             '<(third_party_path)/'
