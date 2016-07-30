@@ -849,15 +849,16 @@ class Dep:
                 for cmd in self.options["build"]:
                     if hasattr(cmd, '__call__'):
                         cmd()
-                    elif cmd.startswith("makeSingle"):
-                        cmd = "make -j1"
-                    elif cmd.startswith("make"):
-                        if "-j" not in cmd:
-                            cmd += " -j" + str(Platform.cpuCount)
-                    elif cmd.startswith("xcodebuild"):
-                        if "-jobs" not in cmd:
-                            cmd += " -jobs " + str(Platform.cpuCount)
-                    Utils.run(cmd)
+                    else:
+                        if cmd.startswith("makeSingle"):
+                            cmd = "make -j1"
+                        elif cmd.startswith("make"):
+                            if "-j" not in cmd:
+                                cmd += " -j" + str(Platform.cpuCount)
+                        elif cmd.startswith("xcodebuild"):
+                            if "-jobs" not in cmd:
+                                cmd += " -jobs " + str(Platform.cpuCount)
+                        Utils.run(cmd)
 
                 self.cache.set(self.name + "-lastbuild-config", ConfigCache.getConfigStr())
 
@@ -928,37 +929,37 @@ class Dep:
 
         outputs = self.findOutputs()
         for output in outputs:
-            if output["found"]:
-                destDir = os.path.join(Deps.getDir(), "..", OUTPUT, "third-party", "." + self.buildConfig["config"])
-                destFile = os.path.join(destDir, output["file"])
-                Utils.mkdir(destDir)
-
-                if self.needBuild or not os.path.exists(destFile) :
-                    if self.configChanged:
-                        # Config has been changed but the destination file does not exists
-                        # The dependency needs to be rebuilt otherwise we would copy the file
-                        # from a different configuration
-                        Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
-                            "has not been found.  The last build of the dependency was different " +
-                            "from the current build config (%s). " % (" + ".join(Konstruct.getConfigs())) +
-                            "The dependency will be rebuilt.")
-
-                        with Utils.Chdir(Deps.path):
-                            self.needBuild = True
-                            self.configChanged = False
-                            self.build()
-
-                    # New outputs have been generated
-                    # Copy them to the build dir
-                    Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
-                    shutil.copyfile(output["src"], destFile)
-
-                # Symlink the current config
-                if not output["copyOnly"]:
-                    Log.debug("Need symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
-                    Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
-            else:
+            if not output["found"]:
                 Utils.exit("Output %s for %s not found" % (output["src"], self.name))
+
+            destDir = os.path.join(Deps.getDir(), "..", OUTPUT, "third-party", "." + self.buildConfig["config"])
+            destFile = os.path.join(destDir, output["file"])
+            Utils.mkdir(destDir)
+
+            if not self.needBuild and self.configChanged and not os.path.exists(destFile):
+                # Config has been changed but the destination file does not exists
+                # The dependency needs to be rebuilt otherwise we would copy the file
+                # from a different configuration
+                Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
+                    "has not been found.  The last build of the dependency was different " +
+                    "from the current build config (%s). " % (" + ".join(Konstruct.getConfigs())) +
+                    "The dependency will be rebuilt.")
+
+                with Utils.Chdir(Deps.path):
+                    self.needBuild = True
+                    self.configChanged = False
+                    self.build()
+
+            if self.needBuild or not os.path.exists(destFile) :
+                # New outputs have been generated
+                # Copy them to the build dir
+                Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
+                shutil.copyfile(output["src"], destFile)
+
+            # Symlink the current config
+            if not output["copyOnly"]:
+                Log.debug("Need symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
+                Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
 
 class Deps:
     path = os.path.abspath("third-party")
@@ -1008,6 +1009,7 @@ class Deps:
         @staticmethod
         def setExec(path):
             Deps.Gclient._exec = os.path.abspath(path)
+            os.environ["PATH"] += os.pathsep + os.path.dirname(path)
 
         def __init__(self, location, revision=None):
             self.location = location
