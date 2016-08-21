@@ -6,7 +6,7 @@
 
 import os, stat
 from konstructor import CommandLine
-from konstructor import Utils 
+from konstructor import Utils, assumeYes
 
 TEMPLATES_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -79,7 +79,7 @@ def createmodule(name, classname, path):
         if not ret:
             Utils.exit()
     else:
-        if not Utils.prompt("module will be created in %s directory. Continue ?" % moduleDir):
+        if not Utils.promptYesNo("module will be created in %s directory. Continue ?" % moduleDir):
             Utils.exit()
 
     Utils.mkdir(moduleDir)

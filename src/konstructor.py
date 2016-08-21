@@ -228,6 +228,10 @@ class CommandLine:
 
         return decorator
 
+@CommandLine.option("--assume-yes", default=False)
+def assumeYes(assumeYes):
+    Utils.promptAssumeYes(assumeYes)
+
 @CommandLine.option("--configuration", default="")
 def configuration(config):
     if not config:
