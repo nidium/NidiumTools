@@ -300,8 +300,9 @@ class Platform:
             tmp = env.split("=", 1)
             if tmp[0].endswith("+"):
                 key = tmp[0][:-1]
-                if key in os.environ:
-                    os.environ[key] = os.environ.get(key, "") + os.pathsep + tmp[1]
+                current = os.environ.get(key, "")
+                if current:
+                    os.environ[key] = current + os.pathsep + tmp[1]
                 else:
                     os.environ[key] = tmp[1]
             else:
