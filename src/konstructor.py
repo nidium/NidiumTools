@@ -300,8 +300,9 @@ class Platform:
             tmp = env.split("=", 1)
             if tmp[0].endswith("+"):
                 key = tmp[0][:-1]
-                if key in os.environ:
-                    os.environ[key] = os.environ.get(key, "") + os.pathsep + tmp[1]
+                current = os.environ.get(key, "")
+                if current:
+                    os.environ[key] = current + os.pathsep + tmp[1]
                 else:
                     os.environ[key] = tmp[1]
             else:
@@ -884,6 +885,8 @@ class Dep:
                 rename = None
                 found = False
                 copy = False
+
+                # First, build the path of the file
                 if type(output) == list:
                     rename = output[1]
                     outFile = output[0]
@@ -897,14 +900,20 @@ class Dep:
                 if path == "":
                     path = "."
 
-                out = {"copyOnly": False, "found": False, "src": os.path.join(depDir, path, outFile)}
+                out = {
+                    "copyOnly": False,
+                    "found": False,
+                    "src": os.path.join(depDir, path, name)
+                }
 
+                # Then, makes sure the directory exists
                 try:
                     files = os.listdir(path)
                 except:
                     outputs.append(out)
                     continue
 
+                # And find which file in the directory match our output
                 for f in files:
                     if re.match(name, f):
                         out["found"] = True
@@ -912,10 +921,12 @@ class Dep:
                             out["file"] = re.sub(name, rename, f)
                         elif copy:
                             out["copyOnly"] = True
-                            out["file"] = os.path.join("..", output["dest"])
+                            out["file"] = output["dst"]
                         else:
                             out["file"] = f
 
+                        # Since the file name may be a regex,
+                        # update the "src" with the real file name
                         out["src"] = os.path.join(depDir, path, f)
                         break
 
@@ -958,7 +969,7 @@ class Dep:
                 # New outputs have been generated
                 # Copy them to the build dir
                 Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
-                shutil.copyfile(output["src"], destFile)
+                shutil.copy(output["src"], destFile)
 
             # Symlink the current config
             if not output["copyOnly"]:
