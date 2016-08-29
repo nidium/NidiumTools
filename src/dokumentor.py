@@ -110,7 +110,7 @@ class DescriptionPart(DocPart):
         """Assure that the description is a string"
         >>> a = DescriptionPart("test")
         >>> print(a)
-        Test.
+        test.
         """
 
         if not isinstance(description, str):
@@ -125,9 +125,9 @@ class DescriptionPart(DocPart):
     def dotstr(text):
         """ Asure that the text is starting with a captial and ending with a '.'
         >>> DescriptionPart.dotstr("a")
-        'A.'
+        'a.'
         >>> DescriptionPart.dotstr("a.")
-        'A.'
+        'a.'
         >>> DescriptionPart.dotstr("")
         ''
         """
@@ -186,7 +186,7 @@ class CodePart(DocPart):
 class ProductPart(DocPart):
     def __init__(self, products):
         if isinstance(products, list) or products is None:
-            self.data = products 
+            self.data = products
         else:
             raise TypeError(str(products) + " must be a list or None")
 
@@ -310,7 +310,7 @@ class TechnicalDoc(BasicDoc):
 
         key = self.get_key()
         add = False
-        dotifyDescription = True 
+        dotifyDescription = True
 
         if not class_name in DOC['classes']:
             add = True
@@ -328,11 +328,11 @@ class TechnicalDoc(BasicDoc):
 
         if add:
             DOC['classes'][class_name] = {
-                'events': {}, 
-                'properties': {}, 
-                'methods': {}, 
-                'static_methods': {}, 
-                'constructors': {}, 
+                'events': {},
+                'properties': {},
+                'methods': {},
+                'static_methods': {},
+                'constructors': {},
                 'base': {class_name: {}}
             }
 
@@ -374,7 +374,7 @@ class DetailDoc(TechnicalDoc):
         self.products = ProductPart(products)
 
         super(DetailDoc, self).__init__(name, description)
-    
+
     def get_key(self):
         return None
 
@@ -822,7 +822,7 @@ class EventDoc(FunctionDoc):
     """
     def __init__(self, name, description, sees=NO_Sees, examples=NO_Examples, params=NO_Params):
         """
-        >>> a = EventDoc('onError', 'This will be called if an error occurs', NO_Sees, NO_Examples, [ParamDoc('err', 'errorcode', 'integer', 111)])
+        >>> a = EventDoc('Classer.onError', 'This will be called if an error occurs', NO_Sees, NO_Examples, [ParamDoc('err', 'errorcode', 'integer', 111)])
         >>> type(a.params)
         <type 'list'>
         >>> a.params[0].default.get()
@@ -838,6 +838,7 @@ class EventDoc(FunctionDoc):
 
     def to_markdown(self):
         """Output prepared in markdown format."""
+        lines = ''
         if self.params > 0:
             lines += "\n__Parameters__:" + "\n"
             for param in self.params:
@@ -925,9 +926,11 @@ class ExampleDoc(BasicDoc):
         'var a = {}'
         >>> a.language.get()
         'javascript'
-        >>> a = ExampleDoc('''mov 0, 1''', '''redcode''')
+        >>> a = ExampleDoc('''mov 0, 1''', "wtf", '''redcode''')
         >>> a.language.get()
         'redcode'
+        >>> a.title.get()
+        'wtf.'
         """
         super(self.__class__, self).__init__()
         self.data = CodePart(example)
@@ -1008,15 +1011,15 @@ class ObjectDoc(BasicDoc):
         >>> a.data[0][0].get()
         'key'
         >>> a.data[0][1].get()
-        'Text.'
+        'text'
         >>> a.data[0][2][0].get()
         'integer'
         >>> a.is_array
         False
         >>> a.to_markdown()
-        '[key: Text. (integer)]'
+        '[key: text (integer)]'
         >>> a.to_dict()
-        {'type': 'Object', 'name': 'JS Object', 'details': [{'typed': ['integer'], 'name': 'key', 'description': 'Text.'}]}
+        {'type': 'Object', 'name': 'JS Object', 'details': [{'default': 'None', 'typed': ['integer'], 'name': 'key', 'description': 'text'}]}
         >>> a = ObjectDoc([("key", "text", 'integer')], IS_Array)
         >>> a.is_array
         True
@@ -1146,7 +1149,7 @@ def report(variant, docs):
             # No products defined for this item, lets check if the section has it
             if section in classLookup:
                 klass.products = classLookup[section].products
-  
+
         for type_doc, type_details in class_details.items():
             data[class_name][type_doc] = {}
 
