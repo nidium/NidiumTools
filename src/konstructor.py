@@ -491,7 +491,7 @@ class Utils:
     def run(cmd, **kwargs):
         import subprocess
 
-        Log.info("Executing :" + cmd)
+        Log.info("Executing " + cmd)
 
         dir_name = None
         if "cwd" in kwargs:
@@ -1059,18 +1059,21 @@ class Deps:
             self.tag = tag
 
         def download(self, destination):
+            verbose = ' -q'
+            if Variables.get("verbose", False) or Log.LogLevel.INFO < Log.loglevel:
+                verbose = ''
             if not os.path.isdir(destination):
-                Utils.run("git clone %s %s" % (self.location, destination))
+                Utils.run("git clone %s %s %s" % (verbose, self.location, destination))
             else:
                 Utils.run("git fetch --all")
 
             with Utils.Chdir(destination):
                 if self.tag:
-                    Utils.run("git checkout tags/" + self.tag)
+                    Utils.run("git checkout tags/" + self.tag + verbose)
                 elif self.revision:
-                    Utils.run("git checkout " + self.revision)
+                    Utils.run("git checkout " + self.revision + verbose)
                 elif self.branch:
-                    Utils.run("git checkout --track origin/" + self.branch)
+                    Utils.run("git checkout --track origin/" + self.branch + verbose)
 
     @staticmethod
     def _process():
