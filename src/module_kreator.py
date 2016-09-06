@@ -18,7 +18,6 @@ def loadTemplate(name):
 
 def createConfigure(name):
     src = loadTemplate("templateConfigure.txt")
-
     with open("configure", "w") as configure:
         configure.write(src.format(name))
 
@@ -26,23 +25,20 @@ def createConfigure(name):
     os.chmod("configure", st.st_mode | stat.S_IEXEC)
 
 def createGyp(name, classname):
-    src = loadTemplate("templateGyp.txt")
-
     Utils.mkdir("gyp")
+    src = loadTemplate("templateGyp.txt")
 
     with open(os.path.join("gyp", name + ".gyp"), "w") as gypfile:
         gypfile.write(src.format(name, classname))
 
 def createSource(name, classname):
-    src = loadTemplate("templateSource.txt")
-
+    src = loadTemplate("templateSource.cpp.txt")
     with open(os.path.join(classname + ".cpp"), "w") as cppfile:
-        cppfile.write(src.format(classname=classname))
+        cppfile.write(src.format(name=name, classname=classname))
 
-    src = loadTemplate("templateSourceHeader.txt")
-
+    src = loadTemplate("templateSource.h.txt")
     with open(os.path.join(classname + ".h"), "w") as cppfile:
-        cppfile.write(src.format(classname=classname))
+        cppfile.write(src.format(name=name, classname=classname))
 
 def createDocAndVar(name, classname):
     for path in [
