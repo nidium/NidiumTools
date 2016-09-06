@@ -1,0 +1,22 @@
+#pragma once
+
+#include <Binding/ClassMapper.h>
+
+class JS{classname} : public Nidium::Binding::ClassMapper<JS{classname}>
+{{
+    public:
+        JS{classname}(char* bar, unsigned int foo);
+    virtual ~JS{classname}();
+    static JS{classname} *Constructor(JSContext *cx, JS::CallArgs &args,
+        JS::HandleObject obj);
+    static JSFunctionSpec *ListMethods();
+    static JSPropertySpec *ListProperties();
+    protected:
+        NIDIUM_DECL_JSCALL(foobar);
+        NIDIUM_DECL_JSGETTERSETTER(foo);
+        NIDIUM_DECL_JSGETTERSETTER(bar);
+    private:
+        char * m_Bar;
+        unsigned int m_Foo;
+}};
+

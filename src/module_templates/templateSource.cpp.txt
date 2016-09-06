@@ -1,0 +1,124 @@
+#include <Core/Utils.h>
+#include <Binding/JSUtils.h>
+
+#include "{classname}.h"
+
+JS{classname}::JS{classname}(char* bar, unsigned int foo)
+{{
+    if (bar) {{
+        m_Bar = strdup(bar);
+    }}
+    m_Foo = foo;
+}}
+
+JS{classname}::~JS{classname}()
+{{
+    //this->unroot();
+    if (m_Bar) {{
+        free(m_Bar);
+    }}
+    m_Foo = 0;
+}}
+
+bool JS{classname}::JS_foobar(JSContext *cx, JS::CallArgs &args)
+{{
+    unsigned int foo;
+
+    if (!JS_ConvertArguments(cx, args, "u", &foo)) {{
+        return false;
+    }}
+
+    args.rval().setBoolean( foo > m_Foo);
+
+    return true;
+}}
+
+JS{classname} *Constructor(JSContext *cx, JS::CallArgs &args,
+        JS::HandleObject obj)
+{{
+    JS::RootedString {classname}(cx);
+    unsigned int foo = 666;
+
+    if (!JS_ConvertArguments(cx, args, "S/u", {classname}.address(), &foo)) {{
+        return nullptr;
+    }}
+    JSAutoByteString c{classname}(cx, {classname});
+
+    JS{classname} *js{classname} = new JS{classname}(c{classname}.ptr(), foo);
+    //js{classname}->root();
+
+    return js{classname};
+}}
+bool JS{classname}::JSSetter_foo(JSContext *cx, JS::MutableHandleValue vp)
+{{
+    uint32_t foo;
+
+    if (!JS::ToUint32(cx, vp, &foo)) {{
+        return true;
+    }}
+
+    m_Foo = foo;
+
+    return true;
+}}
+
+bool JS{classname}::JSGetter_foo(JSContext *cx, JS::MutableHandleValue vp)
+{{
+    vp.setInt32(m_Foo);
+
+    return true;
+}}
+
+bool JS{classname}::JSSetter_bar(JSContext *cx, JS::MutableHandleValue vp)
+{{
+    if (vp.isString()) {{
+        JSAutoByteString cbar(cx, vp.toString());
+        if (m_Bar) {{
+            free(m_Bar);
+        }}
+        m_Bar = strdup(cbar.ptr());
+    }}
+
+    return true;
+}}
+
+bool JS{classname}::JSGetter_bar(JSContext *cx, JS::MutableHandleValue vp)
+{{
+    if (m_Bar) {{
+        vp.setString(JS_NewStringCopyZ(cx, m_Bar));
+    }} else {{
+        vp.setBoolean(false);
+    }}
+
+    return true;
+}}
+
+JSFunctionSpec * JS{classname}::ListMethods()
+{{
+    static JSFunctionSpec funcs[] = {{
+        CLASSMAPPER_FN(JS{classname}, foobar, 1),
+        JS_FS_END
+    }};
+
+    return funcs;
+}}
+
+JSPropertySpec * JS{classname}::ListProperties()
+{{
+    static JSPropertySpec props[] = {{
+        CLASSMAPPER_PROP_GS(JS{classname}, foo),
+        CLASSMAPPER_PROP_GS(JS{classname}, bar),
+        JS_PS_END
+    }};
+
+    return props;
+}};
+
+
+static bool registerCallback(JSContext *cx, JS::HandleObject exports) {{
+    JS{classname}::ExposeClass<2>(cx, "{name}");
+
+    return true;
+}}
+
+NIDIUM_JS_REGISTER_MODULE(registerCallback)
