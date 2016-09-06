@@ -45,17 +45,15 @@ def createSource(name, classname):
         cppfile.write(src.format(classname=classname))
 
 def createDocAndVar(name, classname):
-    Utils.mkdir("doc")
-    with open(os.path.join("doc", ".gitignore"), "w") as cppfile:
-        cppfile.write('')
-
-    Utils.mkdir(os.path.join("var","js", "tests", "unittests"))
-    with open(os.path.join("var","js", "tests", "unittests", ".gitignore"), "w") as cppfile:
-        cppfile.write('')
-
-    Utils.mkdir(os.path.join("var", "rawdoc"))
-    with open(os.path.join("var", "rawdoc", ".gitignore"), "w") as cppfile:
-        cppfile.write('*.pyc\n')
+    for path in [
+        'docs',
+        'tests',
+        os.path.join('tests',  'gunittest'),
+        os.path.join('tests', 'jsunittest'),
+        os.path.join('tests', 'jsautotest') ]:
+        Utils.mkdir(path)
+        with open(os.path.join(path, ".gitignore"), "w") as cppfile:
+            cppfile.write('')
 
     with open(".gitignore", "w") as cppfile:
         cppfile.write('*.pyc\nkonstruct.log\nlockfile\nbuild\nthird-party\n')
