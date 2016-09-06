@@ -244,7 +244,7 @@ def configuration(config):
 
 @CommandLine.option("--verbose", default=False)
 def verbose(verbose):
-    Variables.set("verbose", True)
+    Variables.set("verbose", verbose)
 
 @CommandLine.option("--ignore-build", default="")
 def ignoreBuild(ignoreBuild):
