@@ -7,6 +7,7 @@
 import sys,os
 from pprint import pprint
 
+
 LOG_FILE = open('./konstruct.log', 'w')
 OUTPUT = "build/"
 ROOT = os.getcwd()
@@ -96,7 +97,7 @@ class Tests:
     @staticmethod
     def run():
         if len(Tests._tests) == 0:
-            Log.debug("No Tests defined")
+            Log.debug("No tests defined")
             return False
         success = True
         for cmd in Tests._tests:
@@ -104,7 +105,7 @@ class Tests:
             if isinstance(cmd, tuple):
                 dir_name = cmd[1]
                 cmd = cmd[0]
-            Log.debug("Running tests suite : %s" % (cmd))
+            Log.info("Running tests suite : %s" % (cmd))
             code, output = Utils.run(cmd, verbose=True, failExit=False, cwd=dir_name)
             if code != 0:
                 success = False
@@ -276,10 +277,10 @@ def forceDownload(forceDownload, forceBuild, force):
     for d in forceDownload + forceBuild:
         if d in AVAILABLE_DEPS["default"]:
             if d in forceDownload:
-                Log.info("Forcing download for %s" % d)
+                Log.debug("Forcing download for %s" % d)
                 AVAILABLE_DEPS["default"][d].needDownload = True
             if d in forceBuild:
-                Log.info("Forcing download for %s" % d)
+                Log.debug("Forcing download for %s" % d)
                 AVAILABLE_DEPS["default"][d].needBuild = True
         else:
             Log.warn("Can't force download or build for %s. Dependency not found" % d)
@@ -313,14 +314,13 @@ class Platform:
 # {{{ ConfigCache
 class ConfigCache:
     CONFIG_INSTANCE = {}
-
     def __init__(self, f):
         self.file = f;
 
         if self.file in ConfigCache.CONFIG_INSTANCE:
             self.configCache = ConfigCache.CONFIG_INSTANCE[self.file]
         else:
-            print(self.file)
+            Log.debug("Reading cache: " + self.file)
             self.configCache = ConfigCache._read(self.file)
             ConfigCache.CONFIG_INSTANCE[self.file] = self.configCache
 
@@ -436,9 +436,9 @@ class Utils:
             applied = subprocess.call(["patch", pNum, "-N", "-R", "--dry-run", "--silent"], stdin=patch, stdout=nullout, stderr=subprocess.STDOUT)
 
             if applied == 0:
-                Log.info("    Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
+                Log.info("Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
             else:
-                Log.info("    Applying patch " + patchFile)
+                Log.info("Applying patch " + patchFile)
 
                 # Check if the patch will succeed
                 patch.seek(0)
@@ -491,7 +491,7 @@ class Utils:
     def run(cmd, **kwargs):
         import subprocess
 
-        Log.debug("Executing :" + cmd)
+        Log.info("Executing :" + cmd)
 
         dir_name = None
         if "cwd" in kwargs:
@@ -520,7 +520,7 @@ class Utils:
             if error:
                 str += "\n\tError: '%s'" % error
             if code != 0:
-                Log.info(str + "\n")
+                Log.debug(str + "\n")
         elif output is not None:
             LOG_FILE.write(output)
             LOG_FILE.flush()
@@ -584,11 +584,13 @@ class Utils:
 
         extension = os.path.splitext(path)[1]
         if extension == ".zip":
+            Log.debug("Extracting " + extension + " for " + destination )
             from zipfile import ZipFile
             zip = ZipFile(path)
             zip.extractall(destination)
             zip.close()
         elif extension in [".tar", ".gz", ".bz2", ".bzip2", ".tgz"]:
+            Log.debug("Extracting " + extension + " for " + destination )
             import tarfile
             tar = tarfile.open(path)
             tar.extractall(destination)
@@ -596,7 +598,7 @@ class Utils:
         else:
             # Single file downloaded, not an archive
             # Nothing to do
-            Log.info("Nothing to extract for " + path)
+            Log.debug("Nothing to extract for " + path)
             return
 
         with Utils.Chdir(destination):
@@ -652,37 +654,51 @@ class Utils:
 
         f.close()
 
-        Log.echo("Destination %s" % (destinationDir))
+        Log.debug("--Downloading %s" % (downloadDir))
         if destinationDir:
-            Log.echo("Extracting %s" % (f.name))
+            Log.info("Extracting %s" % (f.name))
             Utils.extract(os.path.join(downloadDir, f.name), destinationDir)
 # }}}
 
 # {{{ Logs
 class Log:
+    class LogLevel:
+        ALL = 0
+        DEBUG = 1
+        INFO = 2
+        WARN = 3
+        ERROR = 4
+        FATAL = 5
+        OFF = 6
+    loglevel = LogLevel.INFO
     @staticmethod
     def echo(string):
         print(string)
 
     @staticmethod
     def info(string):
-        Log.echo(string)
+        if Log.LogLevel.INFO >= Log.loglevel:
+            Log.echo("[INFO  ] " + string)
 
     @staticmethod
     def debug(string):
-        Log.echo("[DEBUG] " + string)
+        if Log.LogLevel.DEBUG >= Log.loglevel:
+            Log.echo("[DEBUG ] " + string)
 
     @staticmethod
     def warn(string):
-        Log.echo(string)
-
-    @staticmethod
-    def success(string):
-        Log.echo(string)
+        if Log.LogLevel.WARN >= Log.loglevel:
+            Log.echo("[WARN  ] " + string)
 
     @staticmethod
     def error(string):
-        Log.echo(string);
+        if Log.LogLevel.FATAL >= Log.loglevel:
+           Log.echo("[ERROR ] " +string);
+
+    @staticmethod
+    def success(string):
+        if Log.LogLevel.OFF >= Log.loglevel:
+            Log.echo("[SUCCES] " + string)
 # }}}
 
 # {{{ Deps
