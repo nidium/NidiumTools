@@ -1,0 +1,94 @@
+# Copyright 2016 Nidium Inc. All rights reserved.
+# Use of this source code is governed by a MIT license
+# that can be found in the LICENSE file.
+
+from dokumentor import *
+
+ClassDoc("{name}", "{name} object",
+    SeesDocs("Module"),
+    [ExampleDoc("""
+var lh = require('./lib{classname}');
+var h = new lh.{classname}("{classname}", 666);
+var ret = h.foobar(668);
+console.log(h.bar, h.foo, ret);
+h.foo = 668;
+h.bar = "bonjour";
+ret = h.foobar()
+console.log(h.bar, h.foo, ret);
+    """)],
+    NO_Extends,
+    NO_Inherrits,
+    "Module",
+    ["Modules"]
+)
+
+ConstructorDoc("{name}", "Create an {name} Instance",
+    SeesDocs("Module|{name}"),
+     [ExampleDoc("""
+var lh = require('./lib{classname}');
+var h = new lh.{classname}("{classname}");
+var ret = h.foobar(668);
+console.log(h.bar, h.foo, ret);
+var h = new lh.{classname}("{classname}", 668);
+var ret = h.foobar(668);
+console.log(h.bar, h.foo, ret);
+    """)
+    ],
+    [ParamDoc("bar", "The name of this {classname}", "string", NO_Default, IS_Obligated),
+     ParamDoc("foo", "The value of foo", "integer", "666", IS_Optional)],
+    ReturnDoc( "The instance of the {name} Object", "{name}|null")
+)
+
+FunctionDoc("{name}.foobar", "Determine if foo is on a certain level.",
+    SeesDocs("Module|{name}|{name}.foo|{name}.bar|{name}.foobar"),
+     [ExampleDoc("""
+var lh = require('./lib{classname}');
+var h = new lh.{classname}("{classname}");
+var ret = h.foobar(668);
+console.log(h.bar, h.foo, ret);
+var h = new lh.{classname}("{classname}", 668);
+var ret = h.foobar(668);
+console.log(h.bar, h.foo, ret);
+    """)
+    ],
+    IS_Dynamic,
+    IS_Public,
+    IS_Fast,
+    [ParamDoc("foo", "The value of foo", "integer", NO_Default, IS_Obligated)],
+    ReturnDoc( "Returns true if foo is higher than the {name}.foo value.", "boolean")
+)
+
+FieldDoc("{name}.foo", "The foo value.",
+    SeesDocs("Module|{name}|{name}.foo|{name}.bar|{name}.foobar"),
+     [ExampleDoc("""
+var lh = require('./lib{classname}');
+var h = new lh.{classname}("{classname}");
+console.log(h.foo);
+h.foo = 333;
+console.log(h.foo);
+    """)
+    ],
+    IS_Dynamic,
+    IS_Public,
+    IS_ReadWrite,
+    "integer",
+    "666"
+)
+
+FieldDoc("{name}.bar", "The barfoo value.",
+    SeesDocs("Module|{name}|{name}.foo|{name}.bar|{name}.foobar"),
+     [ExampleDoc("""
+var lh = require('./lib{classname}');
+var h = new lh.{classname}("{classname}");
+console.log(h.barfoo);
+h.bar = "Bonjour";
+console.log(h.bar);
+    """)
+    ],
+    IS_Dynamic,
+    IS_Public,
+    IS_ReadWrite,
+    "string",
+    NO_Default
+)
+

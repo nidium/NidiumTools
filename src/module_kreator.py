@@ -40,9 +40,14 @@ def createSource(name, classname):
     with open(os.path.join(classname + ".h"), "w") as cppfile:
         cppfile.write(src.format(name=name, classname=classname))
 
-def createDocAndVar(name, classname):
+def createDoc(name, classname):
+    Utils.mkdir('docs')
+    src = loadTemplate("templateDoc.cpp.py.txt")
+    with open(os.path.join('docs', classname + ".cpp.py"), "w") as docfile:
+        docfile.write(src.format(name=name, classname=classname))
+
+def createVar(name, classname):
     for path in [
-        'docs',
         'tests',
         os.path.join('tests',  'gunittest'),
         os.path.join('tests', 'jsunittest'),
@@ -82,7 +87,8 @@ def createmodule(name, classname, path):
         createConfigure(name)
         createGyp(name, classname)
         createSource(name, classname)
-        createDocAndVar(name, classname)
+        createDoc(name, classname)
+        createVar(name, classname)
 
     print("Your module is now ready. It can be build by adding the argument --module=%s to the configure script of NativeStudio or NativeServer" % (os.path.abspath(os.path.join(path, name))))
     print("You may want to create a repository for your module with 'git init {0}".format(name))
