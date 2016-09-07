@@ -40,11 +40,16 @@ def createSource(name, classname):
     with open(os.path.join(classname + ".h"), "w") as cppfile:
         cppfile.write(src.format(name=name, classname=classname))
 
+
 def createDoc(name, classname):
     Utils.mkdir('docs')
     src = loadTemplate("templateDoc.cpp.py.txt")
     with open(os.path.join('docs', classname + ".cpp.py"), "w") as docfile:
         docfile.write(src.format(name=name, classname=classname))
+    src = loadTemplate("templateIDL.txt")
+    with open(os.path.join('docs', name + ".idl"), "w") as docfile:
+        docfile.write(src.format(name=name, classname=classname))
+
 
 def createVar(name, classname):
     for path in [

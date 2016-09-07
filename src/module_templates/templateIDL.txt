@@ -1,0 +1,8 @@
+[
+    Constructor(string bar, optional integer foo),
+    classname = {name}
+] interface {name} {{
+      attribute string bar;
+      attribute integer foo;
+     boolean foosbars(integer foo);
+}};
