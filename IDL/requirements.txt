@@ -1,0 +1,4 @@
+ply==3.8
+MarkupSafe==0.23
+Mako==1.0.4
+pywidl==0.1
