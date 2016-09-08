@@ -1,13 +1,20 @@
 
+start: virtualenv
+	@echo '#You need to run those commands'
+	@echo 'source ./virtualenv/bin/activate'
+	@echo 'export PYTHONPATH=$$PYTHONPATH:`pwd`'
 
 virtualenv:
-	python -m virtualenv virtualenv
-	source virtualenv/bin/activate
-	pip install -r requirements.txt
+	@echo '#You need to run those commands'
+	@echo 'python -m virtualenv virtualenv'
+	@echo 'source virtualenv/bin/activate'
+	@echo 'pip install -r requirements.txt'
+	@echo 'deactivate'
+
 
 
 .PHONY: clean
 
 clean:
-	echo "NO"
+	rm -rf virtualenv $(shell find . -type f -name '*.pyc')
 

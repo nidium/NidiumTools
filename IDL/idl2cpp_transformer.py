@@ -4,6 +4,7 @@ from pywidl.model import Interface, PartialInterface, ImplementsStatement, \
                         Exception as idl_Exception
 
 import os
+import sys
 import string
 from mako.template import Template
 from mako import exceptions
@@ -122,6 +123,9 @@ class Nidium:
         self.definition = definition
         self.foo = foo
         self.kwargs = kwargs
+        self.base_dir = './'
+        if 'base_dir' in self.kwargs.keys():
+            self.base_dir = self.kwargs['base_dir']
         self.path = self.output.replace('.', '_')
         self.log_fh = open(self.output, 'a', 0)
         if not os.path.isdir(self.path):
@@ -190,7 +194,7 @@ class Nidium:
         file_h.close()
     def template(self, file_name, template_name, data):
         try:
-            code_tpl = Template(filename=template_name, strict_undefined=True)
+            code_tpl = Template(filename=os.path.join(self.base_dir, template_name), strict_undefined=True)
             output = code_tpl.render(**data)
             self.put_file_contents(file_name, output)
         except:

@@ -1,0 +1,15 @@
+dictionary Constructor
+{
+    DOMString ip = "0.0.0.0";
+    unsigned short port = 6969;
+};
+
+[
+    Constructor(DOMString ip, unsigned short port),
+    className=Hello
+] interface Hello
+{
+    attribute EventHandler onclient;
+    boolean foobar(optional long x, optional long last = "foo");
+
+};
