@@ -4,6 +4,7 @@
 from idl2cpp_transformer import ctype, jsvaltype, convert, capitalize
 %>
 
+#pragma once
 //#include "${foo}"
 
 namespace Nidium {
@@ -13,7 +14,8 @@ class ${ classname } {
 % for memberName, member in members:
     //{$ memberName }
 % endfor
-}
+};
 
 } // namespace Binding
 } // namespace Nidium
+

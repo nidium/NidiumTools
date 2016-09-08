@@ -35,8 +35,8 @@ from pywidl.model import SimpleType
     % endif
 </%def>
 
-#pragma once
 #include <Binding/JSExposer.h>
+#include "${classname}.h"
 
 namespace Nidium {
 namespace Binding {

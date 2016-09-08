@@ -4,5 +4,6 @@
 ] interface Hello {
       attribute string bar;
       attribute unsigned short foo;
-     boolean foobar(integer foo);
+     boolean foobar(unsigned short foo);
 };
+
