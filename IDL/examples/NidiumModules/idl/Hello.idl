@@ -1,0 +1,8 @@
+[
+    Constructor(DOMString bar, optional unsigned short foo),
+    classname = Hello
+] interface Hello {
+      attribute string bar;
+      attribute unsigned short foo;
+     boolean foobar(integer foo);
+};
