@@ -6,9 +6,7 @@ from pywidl.model import Interface, PartialInterface, ImplementsStatement, \
 import os
 import sys
 import string
-from mako.template import Template
-from mako.lookup import TemplateLookup
-from mako import exceptions
+from jinja2 import Template, Environment, PackageLoader
 
 """Generate CPP/H files from WebIDL filess"""
 def dump_introspect(member):
@@ -89,7 +87,7 @@ TypeMapping = {
 }
 # }}}
 
-# {{{ Custom Mako filters
+# {{{ Custom Jinja filters
 def capitalize(text):
     return string.capwords(text)
 
@@ -197,19 +195,21 @@ class Nidium:
         file_h.write(contents)
         file_h.close()
     def template(self, file_name, template_name, data):
-        try:
-            mylookup = TemplateLookup(directories=['./'])
-            code_tpl = Template(filename=os.path.join(self.base_dir, template_name), strict_undefined=True, lookup=mylookup)
+            env = Environment(loader=PackageLoader('idl2cpp_transformer', 'idl2cpp_templates'))
+            env.filters['capitalize'] = capitalize
+            env.filters['ctype'] = ctype
+            env.filters['jsvaltype'] = jsvaltype
+            env.filters['convert'] = convert
+            env.filters['idl_type'] = idl_type
+            code_tpl = env.get_template(template_name)
             output = code_tpl.render(**data)
             self.put_file_contents(file_name, output)
-        except:
-            print(exceptions.text_error_template().render())
     def format_interface(self):
         data = self.to_dict()
         file_name = os.path.join(self.path, self.definition.name + ".cpp")
-        self.template(file_name, 'templates/base_class.cpp.tpl', data)
+        self.template(file_name, 'base_class.cpp.tpl', data)
         file_name = os.path.join(self.path, self.definition.name + ".h")
-        self.template(file_name, 'templates/base_class.h.tpl', data)
+        self.template(file_name, 'base_class.h.tpl', data)
     def format_partialinterface(self):
         raise Exception("%s formatting is not defined yet [%s]" %
                         (self.definition.name, self.definition.__class__))
@@ -222,7 +222,7 @@ class Nidium:
     def format_dictionary(self):
         data = self.to_dict()
         file_name = os.path.join(self.path, self.definition.name + ".h")
-        self.template(file_name, 'templates/dict_class.h.tpl', data)
+        self.template(file_name, 'dict_class.h.tpl', data)
     def format_callback(self):
         pass
         #raise Exception("%s formatting is not defined yet [%s]" %
