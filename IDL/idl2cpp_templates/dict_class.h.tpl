@@ -1,6 +1,10 @@
 <%!
 from idl2cpp_transformer import ctype, jsvaltype, convert, capitalize, idl_type
+from pywidl.model import SimpleType
 %>
+
+<%namespace name="defs" file="defs.tpl" import="arglst, jsval2c"/>
+
 #pragma once
 
 #include <Dict.h>
@@ -13,12 +17,12 @@ class Dict_${ name } : public Dict
 {
 public:
     Dict_${ name }() {
-        % for attr in members:
-        <% type = idl_type(attr.type) %>
+        % for attrData in members:
+        <% type = idl_type(attrData.type) %>
         % if type == 'DOMSTRING':
-        m_${ attr.name } = ${ 'NULL' if not attr.default else "strdup(" + attr.default.value + ");" }
+        m_${ attrData.name } = ${ 'NULL' if not attrData.default else "strdup(" + attrData.default.value + ");" }
         % else:
-        m_${ attr.name } = ${ 'NULL' if not attr.default else attr.default.value };
+        m_${ attrData.name } = ${ 'NULL' if not attrData.default else attrData.default.value };
         % endif
         % endfor
     }
@@ -33,19 +37,19 @@ public:
         }
         JS::RootedObject curobj(cx, &v.toObject());
         JS::RootedValue curopt(cx);
-        % for attr in members:
-        <% type = idl_type(attr.type) %>
+        % for attrData in members:
+        <% type = idl_type(attrData.type) %>
 
-        if (!JS_GetProperty(cx, curobj, "${ attr.name }", &curopt)) {
+        if (!JS_GetProperty(cx, curobj, "${ attrData.name }", &curopt)) {
             return false;
         } else {
             % if type == 'DOMSTRING':
             JS::RootedString curstr(cx, JS::ToString(cx, curopt));
             JSAutoByteString c_curstr(cx, curstr);
 
-            m_${ attr.name } = strdup(c_curstr.ptr());
+            m_${ attrData.name } = strdup(c_curstr.ptr());
             % elif type == 'UNSIGNED_SHORT':
-            if (!JS::ToUint16(cx, curopt, &m_${ attr.name })) {
+            if (!JS::ToUint16(cx, curopt, &m_${ attrData.name })) {
                 return false;
             }
             % endif
@@ -54,18 +58,15 @@ public:
 
         return true;
     }
-
-    % for attr in members:
-    <% type = idl_type(attr.type) %>
-    const ${ type|ctype } ${ attr.name }() const {
-        return m_${ attr.name };
+    % for attrData in members:
+    const ${ idl_type(attrData.type)|ctype } ${ attrData.name }() const {
+        return m_${ attrData.name };
     }
 
     % endfor
 private:
-    % for attr in members:
-    <% type = idl_type(attr.type) %>
-    ${ type|ctype } m_${ attr.name };
+    % for attrData in members:
+    ${ idl_type(attrData.type)|ctype } m_${ attrData.name };
     % endfor
 };
 // }}}

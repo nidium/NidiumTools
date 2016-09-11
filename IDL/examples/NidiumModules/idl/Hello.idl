@@ -2,8 +2,7 @@
     Constructor(DOMString bar, optional unsigned short foo),
     classname = Hello
 ] interface Hello {
-      attribute string bar;
+      attribute DOMString bar;
       attribute unsigned short foo;
      boolean foobar(unsigned short foo);
 };
-

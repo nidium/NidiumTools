@@ -7,14 +7,15 @@ import os
 import sys
 import string
 from mako.template import Template
+from mako.lookup import TemplateLookup
 from mako import exceptions
 
 """Generate CPP/H files from WebIDL filess"""
-
-def dump_inspect(inst):
-    for prop in dir(inst):
-        if prop[0] != '_':
-            print(prop, getattr(inst, prop))
+def dump_introspect(member):
+    print("")
+    public_props = (name for name in dir(member) if not name.startswith('_'))
+    for k in public_props:
+        print(k, getattr(member, k))
 
 # {{{ Conversion configuration
 # TODO: ANY, DATE, OBJECT, VOID
@@ -108,10 +109,13 @@ def convert(text):
     return TypeMapping[text]['convert']
 
 def idl_type(typed):
-    value = typed.type
-    for key in dir(SimpleType):
-        if getattr(SimpleType, key) == value:
-            return key
+    if isinstance(typed, SimpleType):
+        value = typed.type
+        for key in dir(SimpleType):
+            if getattr(SimpleType, key) == value:
+                return key
+    #print("FIXME", typed, typed.name, type(typed))
+    #dump_introspect(typed)
     return 'UNKNOWN'
 # }}}
 
@@ -166,14 +170,14 @@ class Nidium:
             data['name'] = self.definition.name
         for member in self.definition.members:
             if hasattr(member, 'type'):
-                #TODO:data['members'][member.name] = member
-                pass
+                if not member.name in data['members'].keys():
+                    data['members'][member.name] = member
             else:
-                if not member.name in data['operations']:
+                if not member.name in data['operations'].keys():
                     operation = {'type': 'operation', 'lst': [], 'maxArgs': 0, 'name': member.name}
                     data['operations'][member.name] = operation
-                operation['lst'].append(member)
-                operation['maxArgs'] = max(operation['maxArgs'], len(member.arguments))
+                data['operations'][member.name]['lst'].append(member)
+                data['operations'][member.name]['maxArgs'] = max(operation['maxArgs'], len(member.arguments))
         for attr in self.definition.extended_attributes:
             if attr.value.name == 'Constructor':
                 data['ctor'] = True
@@ -194,7 +198,8 @@ class Nidium:
         file_h.close()
     def template(self, file_name, template_name, data):
         try:
-            code_tpl = Template(filename=os.path.join(self.base_dir, template_name), strict_undefined=True)
+            mylookup = TemplateLookup(directories=['./'])
+            code_tpl = Template(filename=os.path.join(self.base_dir, template_name), strict_undefined=True, lookup=mylookup)
             output = code_tpl.render(**data)
             self.put_file_contents(file_name, output)
         except:

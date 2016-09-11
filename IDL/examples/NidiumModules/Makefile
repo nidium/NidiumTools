@@ -1,6 +1,6 @@
 INPUT_DIR=./idl
 OUTPUT_DIR=./cpp
-PARAMS=-- --foo --foobar=1
+PARAMS=-- --foo=HelloBase --foobar=1
 
 CPP_DIRS=\
 	$(OUTPUT_DIR)/Hello.code \
