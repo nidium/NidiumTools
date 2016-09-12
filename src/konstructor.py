@@ -508,7 +508,7 @@ class Utils:
         if "returnOutput" in kwargs:
             stdout = stderr = subprocess.PIPE
 
-        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr)
+        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ)
 
         output, error = child.communicate()
         code = child.returncode
