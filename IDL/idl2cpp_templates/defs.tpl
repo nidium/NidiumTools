@@ -26,7 +26,7 @@
         __curstr_c.encodeUtf8(cx, __curstr);
 
         char *{{ dest }} = __curstr_c.ptr();
-    {# elif not hasattr(SimpleType, need) #}
+    {% elif not need.__class__ == 'SimpleType' %}
         //TODO: Interface {{ need.name }}
     {% else %}
         {{ need|ctype }} {{ dest }};

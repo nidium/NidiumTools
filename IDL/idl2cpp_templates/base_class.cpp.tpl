@@ -93,7 +93,11 @@ bool {{ classname }}::JS_{{ attrName }}(JSContext *cx, JS::CallArgs &args)
                         return false;
                     }
                 {% endif %}
-                {{ defs.jsval2c('args[' ~loop.index0 + ']', arg.type|idl_type, 'inArg_' ~ loop.index0) }}
+                {% if arg.type.__class__ == 'SimpleType' %}
+                    {{ defs.jsval2c('args[' ~ loop.index0 ~ ']', arg.type|idl_type, 'inArg_' ~ loop.index0) }}
+                {% else %}
+                    {{ defs.jsval2c('args[' ~ loop.index0 ~ ']', arg.type, 'inArg_' ~ loop.index0) }}
+                {% endif %}
             {% endfor %}
 
             /* End of arguments conversion */
@@ -160,8 +164,10 @@ bool {{ classname }}::JSGetter_{{ attrName }}(JSContext *cx, JS::MutableHandleVa
         {% if need == 'DOMSTRING' %}
             JS::RootedString jstr(cx, JS_NewStringCopyZ(cx, this->get_{{ attrName }}()));
             vp.setString(jstr);
+        {% elif attrData.type.__class__ != 'SimpleType' %}
+            // TODO InterfaceType {{ need.name }}
         {% else %}
-            {{ attrData.type|idl_type|ctype }} cval = this->get_{{ attrName }}();
+            {{ need|ctype }} cval = this->get_{{ attrName }}();
             JS::RootedValue jval(cx);
             if (!JS::{{ need | convert }}(cx, jval, &cval)) {
                 JS_ReportError(cx, "TypeError");

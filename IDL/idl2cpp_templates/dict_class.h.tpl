@@ -7,7 +7,7 @@
 namespace Nidium {
 namespace Binding {
 
-// {{ '{{{' Dict_{{ name }}
+// {{ '{{{' }} Dict_{{ name }}
 class Dict_{{ name }} : public Dict
 {
 public:
@@ -51,14 +51,22 @@ public:
         return true;
     }
     {% for attrData in members %}
-    const {{ attrData.type|idl_type|ctype }} {{ attrData.name }}() const {
+        {% if attrData.type.__class__ == 'SimpleType' %}
+            const {{ attrData.type|idl_type|ctype }} {{ attrData.name }}() const {
+        {% else %}
+            const {{ attrData.name }} {{ attrData.name }}() const {
+        {% endif %}
         return m_{{ attrData.name }};
     }
 
     {% endfor %}
 private:
     {% for attrData in members %}
-{{ '{{{' {{ attrData.type|idl_type)|ctype }} m_{{ attrData.name }};
+        {% if attrData.type.__class__ == 'SimpleType' %}
+            {{ attrData.type|idl_type|ctype }} m_{{ attrData.name }};
+        {% else %}
+            {{ attrData.name }} m_{{ attrData.name }};
+        {% endif %}
     {% endfor %}
 };
 // {{ '}}}' }}

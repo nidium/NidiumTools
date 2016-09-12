@@ -1,4 +1,4 @@
-from pywidl.model import SimpleType
+from pywidl.model import SimpleType, InterfaceType
 from pywidl.model import Interface, PartialInterface, ImplementsStatement, \
                          Typedef, Dictionary, Callback, Enum, \
                         Exception as idl_Exception
@@ -112,7 +112,7 @@ def idl_type(typed):
         for key in dir(SimpleType):
             if getattr(SimpleType, key) == value:
                 return key
-    #print("FIXME", typed, typed.name, type(typed))
+    #print("FIXME", typed, type(typed))
     #dump_introspect(typed)
     return 'UNKNOWN'
 # }}}

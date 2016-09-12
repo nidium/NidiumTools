@@ -19,6 +19,7 @@ namespace Nidium {
 namespace Binding {
 
 // {{ '{{{' }} fake {{ foo }}
+
 /*
 //This is a model of our imaginary base class '{{ foo }}'
 
@@ -42,14 +43,26 @@ protected:
     //todo SETTER ONLY
     {% for attrName, attrData in members.items() %}
         {% if not attrData.readonly %}
-            bool set_{{ attrData.name }}({{ attrData.type|idl_type|ctype }} );
+            {% if attrData.type.__class__ == 'SimpleType' %}
+                bool set_{{ attrData.name }}({{ attrData.type|idl_type|ctype }} );
+            {% else %}
+                bool set_{{ attrData.name }}({{ attrData.name }} );
+            {% endif %}
         {% endif %}
-        {{ attrData.type|idl_type|ctype }} get_{{ attrData.name }}();
+        {% if attrData.type.__class__ == 'SimpleType' %}
+            {{ attrData.type|idl_type|ctype }} get_{{ attrData.name }}();
+        {% else %}
+            {{ attrData.name }} get_{{ attrData.name }}();
+        {% endif %}
     {% endfor %}
 private:
     // Properties
     {% for attrName, attrData in members.items() %}
-        {{ attrData.type|idl_type|ctype }} {{ attrData.name }};
+        {% if attrData.type.__class__ == 'SimpleType' %}
+            {{ attrData.type|idl_type|ctype }} {{ attrData.name }};
+        {% else %}
+            {{ attrData.name }} {{ attrData.name }};
+        {% endif %}
     {% endfor %}
 };
 // {{ '}}}' }}
