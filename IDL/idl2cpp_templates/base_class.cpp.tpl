@@ -59,7 +59,7 @@ namespace Binding {
 // {{ '}}}' }} End Constructor
 {% endif %}
 
-{% if (operations.items) > 0 %}
+{% if operations.keys()|length > 0 %}
 // {{ '{{{'  }} Start Operations
 JSFunctionSpec * {{ classname }}::ListMethods()
 {
@@ -128,7 +128,7 @@ bool {{ classname }}::JS_{{ attrName }}(JSContext *cx, JS::CallArgs &args)
 // {{ '}}}' }} End Operations
 {% endif %}
 
-{% if (members.items) > 0 %}
+{% if members.keys()|length > 0 %}
 // {{ '{{{' }} Start Members
 JSPropertySpec *{{ classname }}::ListProperties()
 {

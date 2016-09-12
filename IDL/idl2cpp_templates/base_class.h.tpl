@@ -27,18 +27,22 @@ class {{ foo }}
 {
 public:
     {% if ctor %}
+        // Constructor
         {% for constructor in constructors['lst'] %}
           {{ foo }} ({{ defs.arglst(constructor.arguments) }});
         {% endfor %}
     {% endif %}
     ~{{ foo }} ();
 protected:
+    {% if operations.keys()|length > 0 %}
     // Methods
     {% for attrName, attrData in operations.items() %}
          {% for op in attrData['lst'] %}
              {{ op.return_type|idl_type|ctype }} {{ op.name }}({{ defs.arglst(op.arguments) }});
          {% endfor %}
     {% endfor %}
+    {% endif %}
+    {% if members.keys()|length > 0 %}
     // Properties
     //todo SETTER ONLY
     {% for attrName, attrData in members.items() %}
@@ -55,6 +59,7 @@ protected:
             {{ attrData.name }} get_{{ attrData.name }}();
         {% endif %}
     {% endfor %}
+    {% endif %}
 private:
     // Properties
     {% for attrName, attrData in members.items() %}
@@ -87,10 +92,10 @@ public:
         JS::HandleObject obj);
     static void RegisterObject(JSContext *cx);
     {%endif %}
-    {% if (operations.items) > 0 %}
+    {% if operations.keys()|length > 0 %}
     static JSFunctionSpec * ListMethods();
     {% endif %}
-    {% if (members.items) > 0 %}
+    {% if members.keys()|length > 0 %}
     static JSPropertySpec *ListProperties();
     {% endif %}
 protected:
