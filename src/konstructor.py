@@ -245,6 +245,7 @@ def configuration(config):
 @CommandLine.option("--verbose", default=False)
 def verbose(verbose):
     Variables.set("verbose", verbose)
+    Log.loglevel = Log.LogLevel.ALL
 
 @CommandLine.option("--ignore-build", default="")
 def ignoreBuild(ignoreBuild):
@@ -727,7 +728,7 @@ class Dep:
         self.cache = ConfigCache(os.path.join(ROOT, "third-party", "konstruct.cache"))
 
     def prepare(self):
-        Log.debug("Preparing " + self.name)
+        Log.debug("=> Preparing " + self.name)
         if self.function is not None:
             options = self.function()
             if options is not None:
@@ -744,8 +745,19 @@ class Dep:
             self.extractDir = self.linkDir['src']
             exists = os.path.exists(self.extractDir)
             if cache["new"]:
-                Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
-                self.needDownload = True
+                if exists:
+                    # Downloaded dir exists but no cache exists for this dep.
+                    # The third-party/konstruct.cache file has been removed/corrupted
+                    # In such case we consider the dependency up to date, so 
+                    # update the cache.
+                    self.cache.setConfig(self.name + "-download", self.downloadConfig);
+                    Log.info("No cache found for \"%s\" but the directory \"%s\" \
+                             already exists. Not downloading again, use \
+                             --force-download=%s to download again this dependency" % (
+                                self.name, self.extractDir, self.name))
+                else:
+                    Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
+                    self.needDownload = True
             elif not exists:
                 Log.debug("Need download because output dir '%s' does not exists" % (self.extractDir))
                 self.needDownload = True
@@ -839,6 +851,7 @@ class Dep:
         if self.linkDir:
             # Make the dep directory point to the directory matching the configuration
             Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
+
         self.cache.setConfig(self.name + "-download", self.downloadConfig);
 
     def patch(self):
