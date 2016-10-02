@@ -39,6 +39,7 @@ class Konstruct:
         "postTests": [],
     }
 
+
     @staticmethod
     def start():
         CommandLine.parse()
@@ -459,16 +460,25 @@ class Utils:
     def symlink(src, dst):
         if os.path.lexists(dst):
             try:
-                os.unlink(dst)
+                if Platform.system == 'Windows':
+                    os.rmdir(dst)
+                else: 
+                    os.unlink(dst)
             except:
                 Utils.exit("Can not unlink %s/%s. Manually rename or remove this file" % (os.getcwd(), dst))
 
         if Platform.system == "Windows":
             # TODO : Not supported
-            #import win32file
-            #win32file.CreateSymbolicLink(fileSrc, fileTarget, 1)
-            Logs.error("no windows support for symlink")
-            Utils.exit()
+            import win32file
+            try:
+                win32file.CreateSymbolicLink(dst, src, 1)
+            except:
+                Log.error("""Insufficicient rights to create symlinks.
+You can try the following:
+1) Run 'secpol.msc' as administrator,
+   Select 'Local Policies > User Rights Assignment > Create symbolic links' and add your user. Click Apply to save your changes.
+2) Press "Windows  R" and run 'GPUpdate /Force' to activate your changes""")
+                Utils.exit()
         else:
             os.symlink(src, dst)
 
@@ -1238,7 +1248,7 @@ class Builder:
                 if target is not None:
                     runCmd += " -target " + target
 
-            elif Platform.system == "Linux":
+            elif Platform.system in [ "Linux", "Windows"] :
                 #runCmd = "CC=" + CLANG + " CXX=" + CLANGPP +" make " + target + " -j" + str(nbCpu)
                 runCmd = "make"
 
@@ -1251,8 +1261,9 @@ class Builder:
                 if parallel:
                     runCmd += " -j%i" % Platform.cpuCount
             else:
-                # TODO : Windows support
-                Utils.exit("Missing windows support");
+                # TODO : Windows support for visual studio
+                #        Currently, there is basic support via llvm + coreutils + gnuwin32
+                Utils.exit("Missing support for %s platform" % (Platform.system));
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
 
             code, output = Utils.run(runCmd)
