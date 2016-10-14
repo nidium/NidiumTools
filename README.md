@@ -1,4 +1,4 @@
-# Nidum Tools
+# Nidium Tools
 
 Several tools that were specially crafted for the nidium project
 
