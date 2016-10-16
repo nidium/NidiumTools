@@ -779,7 +779,7 @@ class Dep:
         cache = self.cache.getConfig(self.name + "-build", self.options)
         self.buildConfig = cache
 
-        if self.cache.get(self.name + "-lastbuild-config"):
+        if self.cache.get(self.name + "-lastbuild-config") != ConfigCache.getConfigStr():
             # The current configuration of konstructor is
             # different from the last build of this dep
             self.configChanged = True
