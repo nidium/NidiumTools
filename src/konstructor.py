@@ -1222,12 +1222,13 @@ class Builder:
         def setConfiguration(config):
             Builder.Gyp._config = config;
 
-        def __init__(self, path):
+        def __init__(self, path, defines={}):
             self.path = os.path.abspath(path)
+            self.defines = defines
 
         def run(self, target=None, parallel=True):
             defines = ""
-            for key, value in Builder.Gyp._defines.items():
+            for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
             defines += " "
 
