@@ -437,7 +437,7 @@ class Utils:
             # First check if the patch might have been already aplied
             applied = subprocess.call(["patch", pNum, "-N", "-R", "--dry-run", "--silent"], stdin=patch, stdout=nullout, stderr=subprocess.STDOUT)
 
-            if applied == 0:
+            if applied in [0, 1]:
                 Log.info("Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
             else:
                 Log.info("Applying patch " + patchFile)
