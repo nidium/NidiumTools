@@ -990,7 +990,7 @@ class Dep:
             destFile = os.path.join(destDir, output["file"])
             Utils.mkdir(destDir)
 
-            if not self.needBuild and self.configChanged and not os.path.exists(destFile):
+            if not self.needBuild and self.configChanged and not os.path.exists(destFile) and not self.ignoreBuild:
                 # Config has been changed but the destination file does not exists
                 # The dependency needs to be rebuilt otherwise we would copy the file
                 # from a different configuration
