@@ -277,15 +277,10 @@ def forceDownload(forceDownload, forceBuild, force):
         forceBuild += force
 
     for d in forceDownload + forceBuild:
-        if d in AVAILABLE_DEPS["default"]:
-            if d in forceDownload:
-                Log.debug("Forcing download for %s" % d)
-                AVAILABLE_DEPS["default"][d].needDownload = True
-            if d in forceBuild:
-                Log.debug("Forcing download for %s" % d)
-                AVAILABLE_DEPS["default"][d].needBuild = True
-        else:
-            Log.warn("Can't force download or build for %s. Dependency not found" % d)
+        if d in forceDownload:
+            Deps.forceDownload(d)
+        if d in forceBuild:
+            Deps.forceBuild(d)
 # }}}
 
 # {{{ Platform
@@ -595,13 +590,11 @@ You can try the following:
 
         extension = os.path.splitext(path)[1]
         if extension == ".zip":
-            Log.debug("Extracting " + extension + " for " + destination )
             from zipfile import ZipFile
             zip = ZipFile(path)
             zip.extractall(destination)
             zip.close()
         elif extension in [".tar", ".gz", ".bz2", ".bzip2", ".tgz"]:
-            Log.debug("Extracting " + extension + " for " + destination )
             import tarfile
             tar = tarfile.open(path)
             tar.extractall(destination)
@@ -665,7 +658,6 @@ You can try the following:
 
         f.close()
 
-        Log.debug("--Downloading %s" % (downloadDir))
         if destinationDir:
             Log.info("Extracting %s" % (f.name))
             Utils.extract(os.path.join(downloadDir, f.name), destinationDir)
@@ -755,16 +747,15 @@ class Dep:
             self.extractDir = self.linkDir['src']
             exists = os.path.exists(self.extractDir)
             if cache["new"]:
-                if exists:
-                    # Downloaded dir exists but no cache exists for this dep.
+                if exists and not self.cache.get("%s-download" % (self.name)):
+                    # Downloaded dir exists but no cache at all exists for this dep.
                     # The third-party/konstruct.cache file has been removed/corrupted
                     # In such case we consider the dependency up to date, so 
                     # update the cache.
                     self.cache.setConfig(self.name + "-download", self.downloadConfig);
-                    Log.info("No cache found for \"%s\" but the directory \"%s\" \
-                             already exists. Not downloading again, use \
-                             --force-download=%s to download again this dependency" % (
-                                self.name, self.extractDir, self.name))
+                    Log.info("No cache found for \"%s\" but the directory \"%s\" " % (self.name, self.extractDir) + 
+                             "already exists. Not downloading again, use "+ 
+                             "--force-download=%s to download again this dependency" % (self.name))
                 else:
                     Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
                     self.needDownload = True
@@ -843,19 +834,26 @@ class Dep:
                 self.needBuild = False
 
     def download(self):
+        import shutil
         if not self.needDownload:
             return
 
-        if os.path.isdir(self.extractDir):
+        # If the extract dir is not a symlink, the user probably overriden the dep.
+        # In such case, warn the user about the dep update, and ask for confirmation
+        # before removing the directory.
+        if not os.path.islink(self.linkDir["dest"]):
             if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
-                import shutil
-                Log.info("Removing %s" % (self.extractDir))
-                shutil.rmtree(self.extractDir)
+                Log.debug("Removing %s" % (self.linkDir["dest"]))
+                shutil.rmtree(self.linkDir["dest"])
             else:
                 Log.info("Skipping update of %s" % self.name)
                 return
 
-        Log.info("Downloading %s" % self.name)
+        if os.path.isdir(self.extractDir):
+            Log.debug("Removing previous version of %s in directory %s" % (self.name, self.extractDir))
+            shutil.rmtree(self.extractDir)
+
+        Log.info("Downloading %s" % (self.name))
         Utils.download(self.options["location"], downloadDir=".", destinationDir=self.extractDir)
 
         if self.linkDir:
@@ -1163,6 +1161,22 @@ class Deps:
             """
 
         return decorator
+
+    @staticmethod
+    def forceDownload(dep):
+        if dep in AVAILABLE_DEPS["default"]:
+            Log.debug("Forcing download for %s" % dep)
+            AVAILABLE_DEPS["default"][dep].needDownload = True
+        else:
+            Log.warn("Can't force download for %s. Dependency not found" % d)
+
+    @staticmethod
+    def forceBuild(dep):
+        if dep in AVAILABLE_DEPS["default"]:
+            Log.debug("Forcing build for %s" % dep)
+            AVAILABLE_DEPS["default"][dep].needBuild = True
+        else:
+            Log.warn("Can't force build for %s. Dependency not found" % d)
 
     @staticmethod
     def setDir(path):
