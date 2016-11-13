@@ -838,10 +838,10 @@ class Dep:
         if not self.needDownload:
             return
 
-        # If the extract dir is not a symlink, the user probably overriden the dep.
+        # If the link dir is not a symlink, the user probably overriden the dep.
         # In such case, warn the user about the dep update, and ask for confirmation
         # before removing the directory.
-        if not os.path.islink(self.linkDir["dest"]):
+        if os.path.isdir(self.linkDir["dest"]):
             if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
                 Log.debug("Removing %s" % (self.linkDir["dest"]))
                 shutil.rmtree(self.linkDir["dest"])
