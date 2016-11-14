@@ -39,7 +39,6 @@ class Konstruct:
         "postTests": [],
     }
 
-
     @staticmethod
     def start():
         CommandLine.parse()
@@ -365,8 +364,6 @@ class ConfigCache:
 
         if key in self.configCache:
             if newCacheHash in self.configCache[key]:
-                # Hash exist in cache but for another configuration.
-                # Simply return the matching config (since the hash it's the same)
                 ret["new"] = False
                 ret["config"] = self.configCache[key][newCacheHash]
 
@@ -711,9 +708,9 @@ from collections import OrderedDict
 AVAILABLE_DEPS = {"default":{}}
 DEPS = OrderedDict()
 class Dep:
-    def __init__(self, name, fun, options={}):
+    def __init__(self, name, fun):
         self.function = fun
-        self.options = options
+        self.options = {}
         self.name = name
 
         self.needDownload = False
@@ -770,10 +767,19 @@ class Dep:
         # Define some variables needed for building/symlinking
         cache = self.cache.getConfig(self.name + "-build", self.options)
         self.buildConfig = cache
+        lastBuildConfig = self.cache.get(self.name + "-lastbuild-config")
 
-        if self.cache.get(self.name + "-lastbuild-config") != ConfigCache.getConfigStr():
+        if lastBuildConfig != ConfigCache.getConfigStr():
             # The current configuration of konstructor is
-            # different from the last build of this dep
+            # different from the last build of this dep.
+
+            if self.linkDir and not self.needDownload:
+                # Dep has already been downloaded but the current config
+                # is not the same as the previous one.
+                # The directory of  the dep might not point to the correct
+                # directory of the dep for the current config. Update it.
+                Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
+
             self.configChanged = True
 
         self.outputsDir = os.path.join(ROOT, OUTPUT, "third-party", "." + cache["config"])
@@ -893,9 +899,7 @@ class Dep:
                     if hasattr(cmd, '__call__'):
                         cmd()
                     else:
-                        if cmd.startswith("makeSingle"):
-                            cmd = "make -j1"
-                        elif cmd.startswith("make"):
+                        if cmd.startswith("make"):
                             if "-j" not in cmd:
                                 cmd += " -j" + str(Platform.cpuCount)
                         elif cmd.startswith("xcodebuild"):
@@ -995,7 +999,7 @@ class Dep:
                 # from a different configuration
                 Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
                     "has not been found.  The last build of the dependency was different " +
-                    "from the current build config (%s). " % (" + ".join(Konstruct.getConfigs())) +
+                    "from the current build config (%s). " % (" - ".join(Konstruct.getConfigs())) +
                     "The dependency will be rebuilt.")
 
                 with Utils.Chdir(Deps.path):
@@ -1136,7 +1140,7 @@ class Deps:
     @staticmethod
     def register(name, **kwargs):
         def decorator(f):
-            d = Dep(name, f, kwargs)
+            d = Dep(name, f)
 
             configuration = "default"
 
