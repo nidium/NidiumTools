@@ -129,6 +129,7 @@ class Tests:
 
             Konstruct._runHook("postTests", success)
 
+        return success
 # }}}
 
 # {{{ ComandLine
