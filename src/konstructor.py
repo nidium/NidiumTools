@@ -488,10 +488,10 @@ You can try the following:
             else: raise
 
     @staticmethod
-    def exit(reason = None):
+    def exit(reason = None, code=1):
         if reason:
             Log.echo(reason)
-        sys.exit(1)
+        sys.exit(code)
 
     @staticmethod
     def run(cmd, **kwargs):
