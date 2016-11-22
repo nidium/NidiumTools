@@ -639,26 +639,32 @@ You can try the following:
         import tempfile
 
         file_name = url.split('/')[-1]
-        u = urllib2.urlopen(url)
-        f = open(os.path.join(downloadDir, file_name), "wb")
-        meta = u.info()
-        #file_size = int(meta.getheaders("Content-Length")[0])
+        extractDir = os.path.join(downloadDir, file_name)
+        exists = os.path.exists(file_name)
+        if exists:
+            if Utils.promptYesNo("The downloadfile %s is already present, download a fresh version ?" % (file_name)):
+                Log.debug("Removing %s" % (file_name))
+                os.unlink(file_name)
+                exists = False
+        if not exists:
+            u = urllib2.urlopen(url)
+            f = open(extractDir, "wb")
+            meta = u.info()
+            #file_size = int(meta.getheaders("Content-Length")[0])
 
-        file_size_dl = 0
-        block_sz = 8192
-        while True:
-            buff = u.read(block_sz)
-            if not buff:
-                break
+            file_size_dl = 0
+            block_sz = 8192
+            while True:
+                buff = u.read(block_sz)
+                if not buff:
+                    break
 
-            file_size_dl += len(buff)
-            f.write(buff)
-
-        f.close()
-
+                file_size_dl += len(buff)
+                f.write(buff)
+            f.close()
         if destinationDir:
-            Log.info("Extracting %s" % (f.name))
-            Utils.extract(os.path.join(downloadDir, f.name), destinationDir)
+            Log.info("Extracting %s" % (file_name))
+            Utils.extract(os.path.join(downloadDir, file_name), destinationDir)
 # }}}
 
 # {{{ Logs
@@ -852,6 +858,7 @@ class Dep:
             if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
                 Log.debug("Removing %s" % (self.linkDir["dest"]))
                 shutil.rmtree(self.linkDir["dest"])
+                self.needDownload = True
             else:
                 Log.info("Skipping update of %s" % self.name)
                 return
