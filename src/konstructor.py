@@ -321,9 +321,6 @@ class ConfigCache:
             self.configCache = ConfigCache._read(self.file)
             ConfigCache.CONFIG_INSTANCE[self.file] = self.configCache
 
-        if not self.configCache:
-            self.configCache = {}
-
     def set(self, key, value):
         self.configCache[key] = value
         self._updateCacheFile();
@@ -390,7 +387,7 @@ class ConfigCache:
         try:
             return json.loads(open(location, "r").read())
         except:
-            return None
+            return {}
 
     @staticmethod
     def getConfigStr():
