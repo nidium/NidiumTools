@@ -1393,13 +1393,16 @@ class PackageManger:
 
     @staticmethod
     def install(name, prompt=True):
-        if not PackageManger.UPDATE_DONE and PackageManger.UPDATE_COMMAND:
-            Utils.run(PackageManger.UPDATE_COMMAND)
-            PackageManger.UPDATE_DONE = True
-
         cmd = "%s %s" % (PackageManger.COMMAND, name)
         if not prompt or (prompt and Utils.promptYesNo("Software \"%s\" is required, would you like to install it ? (%s %s)" % (name, PackageManger.COMMAND, name))):
-            Utils.run(cmd)
+            if not PackageManger.UPDATE_DONE and PackageManger.UPDATE_COMMAND:
+                Log.info("Updating package manager (%s)" % (PackageManger.UPDATE_COMMAND))
+                Utils.run(PackageManger.UPDATE_COMMAND)
+                PackageManger.UPDATE_DONE = True
+
+            code, output = Utils.run(cmd)
+
+        return code == 0
 
     @staticmethod
     def detect():
