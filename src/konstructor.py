@@ -410,6 +410,91 @@ class Utils:
             os.chdir(self.cwd)
 
     @staticmethod
+    def findLinuxDistribution():
+        import re
+        # {{{ parseReleaseFile()
+        def _parseReleaseFile(firstline):
+            _lsb_release_version = re.compile(r'(.+)'
+                                               ' release '
+                                               '([\d.]+)'
+                                               '[^(]*(?:\((.+)\))?')
+            _release_version = re.compile(r'([^0-9]+)'
+                                           '(?: release )?'
+                                           '([\d.]+)'
+                                           '[^(]*(?:\((.+)\))?')
+
+
+            # Default to empty 'version' and 'id' strings.  Both defaults are used
+            # when 'firstline' is empty.  'id' defaults to empty when an id can not
+            # be deduced.
+            version = ''
+            id = ''
+
+            # Parse the first line
+            m = _lsb_release_version.match(firstline)
+            if m is not None:
+                # LSB format: "distro release x.x (codename)"
+                return tuple(m.groups())
+
+            # Pre-LSB format: "distro x.x (codename)"
+            m = _release_version.match(firstline)
+            if m is not None:
+                return tuple(m.groups())
+
+            # Unknown format... take the first two words
+            l = firstline.strip().split()
+            if l:
+                version = l[0]
+                if len(l) > 1:
+                    id = l[1]
+            return '', version, id
+        # }}}
+        try:
+            etc = os.listdir("/etc")
+        except OSError:
+            # Probably not a Unix system
+            return None
+
+        etc.sort()
+
+        _release_filename = re.compile(r'(\w+)[-_](release|version)')
+        _supported_dists = (
+            'suse', 'debian', 'ubuntu', 'fedora', 'redhat', 'centos',
+            'mandrake', 'mandriva', 'rocks', 'slackware', 'yellowdog', 'gentoo',
+            'unitedlinux', 'turbolinux', 'arch', 'mageia')
+
+
+        for file in etc:
+            m = _release_filename.match(file)
+            if m is not None:
+                _distname, dummy = m.groups()
+                _distname = _distname.lower()
+                if _distname in _supported_dists:
+                    distname = _distname
+                    break
+        else:
+            #return _dist_try_harder(distname, version, id)
+            return None
+
+        with open(os.path.join("/etc", file), 'r') as f:
+            firstline = f.readline()
+        _distname, _version, _id = _parseReleaseFile(firstline)
+
+        if _distname and full_distribution_name:
+            distname = _distname
+        if _version:
+            version = _version
+        if _id:
+            id = _id
+        return distname
+
+
+    @staticmethod
+    def findExec(name):
+        from distutils.spawn import find_executable
+        return find_executable(name)
+
+    @staticmethod
     def patch(directory, patchFile, pNum=1):
         if not os.path.exists(directory):
             Utils.exit("Directory %s does not exist. Not patching." % directory)
@@ -1300,3 +1385,48 @@ class Builder:
             return True
 # }}}
 
+# {{{ PackageManager
+class PackageManger:
+    COMMAND = None
+    UPDATE_COMMAND = None
+    UPDATE_DONE = False
+
+    @staticmethod
+    def install(name, prompt=True):
+        if not PackageManger.UPDATE_DONE and PackageManger.UPDATE_COMMAND:
+            Utils.run(PackageManger.UPDATE_COMMAND)
+            PackageManger.UPDATE_DONE = True
+
+        cmd = "%s %s" % (PackageManger.COMMAND, name)
+        if not prompt or (prompt and Utils.promptYesNo("Software \"%s\" is required, would you like to install it ? (%s %s)" % (name, PackageManger.COMMAND, name))):
+            Utils.run(cmd)
+
+    @staticmethod
+    def detect():
+        if Platform.system == "Darwin":
+            if Utils.findExec("brew"):
+                PackageManger.COMMAND = "brew install"
+            elif Utils.promptYesNo("Homebrew (OSX package manager) hasn't been found. Would you like to install it ?"):
+                code, output = Utils.run("/usr/bin/ruby -e \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)\"")
+                if code != 0:
+                    Utils.exit("Failed to install Homebrew. Please install it manually from : http://brew.sh/")
+                else:
+                    PackageManger.COMMAND = "brew install"
+            PackageManger.UPDATE_COMMAND = "brew update"
+        elif Platform.system == "Linux":
+            dist = Utils.findLinuxDistribution()
+            isRoot = (os.geteuid() == 0)
+
+            if dist == "debian" or dist == "ubuntu":
+                PackageManger.UPDATE_COMMAND = "apt-get update"
+                PackageManger.COMMAND = "apt-get install"
+            elif dist == "arch":
+                PackageManger.COMMAND = "pacman -S"
+
+            if not isRoot and PackageManger.COMMAND is not None:
+                PackageManger.COMMAND = "sudo %s" % PackageManger.COMMAND
+                if PackageManger.UPDATE_COMMAND is not None:
+                    PackageManger.UPDATE_COMMAND = "sudo %s" % PackageManger.UPDATE_COMMAND
+
+        return PackageManger.COMMAND
+# }}}
