@@ -47,13 +47,13 @@ protected:
     //todo SETTER ONLY
     {% for attrName, attrData in members.items() %}
         {% if not attrData.readonly %}
-            {% if attrData.type.__class__ == 'SimpleType' %}
-                bool set_{{ attrData.name }}({{ attrData.type|idl_type|ctype }} );
+            {% if attrData.type|idl_type != 'UNKNOWN' %}
+                bool set_{{ attrData.name }}({{ attrData.type|idl_type|ctype }} {{attrData.name }});
             {% else %}
                 bool set_{{ attrData.name }}({{ attrData.name }} );
             {% endif %}
         {% endif %}
-        {% if attrData.type.__class__ == 'SimpleType' %}
+        {% if attrData.type|idl_type != 'UNKNOWN' %}
             {{ attrData.type|idl_type|ctype }} get_{{ attrData.name }}();
         {% else %}
             {{ attrData.name }} get_{{ attrData.name }}();
@@ -63,7 +63,7 @@ protected:
 private:
     // Properties
     {% for attrName, attrData in members.items() %}
-        {% if attrData.type.__class__ == 'SimpleType' %}
+        {% if attrData.type|idl_type != 'UNKNOWN' %}
             {{ attrData.type|idl_type|ctype }} {{ attrData.name }};
         {% else %}
             {{ attrData.name }} {{ attrData.name }};

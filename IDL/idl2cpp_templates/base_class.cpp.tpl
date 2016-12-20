@@ -93,7 +93,7 @@ bool {{ classname }}::JS_{{ attrName }}(JSContext *cx, JS::CallArgs &args)
                         return false;
                     }
                 {% endif %}
-                {% if arg.type.__class__ == 'SimpleType' %}
+                {% if arg.type|idl_type  != 'UNKNOWN' %}
                     {{ defs.jsval2c('args[' ~ loop.index0 ~ ']', arg.type|idl_type, 'inArg_' ~ loop.index0) }}
                 {% else %}
                     {{ defs.jsval2c('args[' ~ loop.index0 ~ ']', arg.type, 'inArg_' ~ loop.index0) }}
@@ -133,8 +133,8 @@ bool {{ classname }}::JS_{{ attrName }}(JSContext *cx, JS::CallArgs &args)
 JSPropertySpec *{{ classname }}::ListProperties()
 {
     static JSPropertySpec props[] = {
-    //todo ONLY-SETTER
     {% for attrName, attrData in members.items() %}
+        //todo: ONLY-SETTER
         {% if not attrData.readonly %}
             CLASSMAPPER_PROP_GS({{ classname }}, {{ attrData.name }}),
         {% endif %}
@@ -146,6 +146,7 @@ JSPropertySpec *{{ classname }}::ListProperties()
 
     return props;
 }
+
 
 {% for attrName, attrData in members.items() %}
     {% if not attrData.readonly %}

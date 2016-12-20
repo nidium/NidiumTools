@@ -26,8 +26,8 @@
         __curstr_c.encodeUtf8(cx, __curstr);
 
         char *{{ dest }} = __curstr_c.ptr();
-    {% elif not need.__class__ == 'SimpleType' %}
-        //TODO: Interface {{ need.name }}
+    {% elif not need != 'UNKNOWN' %}
+        //TODO: Interface {{ need.name }} :  {{ jval }} {{ need }} {{dest}} {{returning}}
     {% else %}
         {{ need|ctype }} {{ dest }};
         if (!JS::{{ need | convert }}(cx, {{ jval }}, &{{ dest }})) {
