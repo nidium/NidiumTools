@@ -12,15 +12,9 @@ $(OUTPUT_DIR)/%.code: $(INPUT_DIR)/%.idl ../../$(PROG).py $(TEMPLATE_FILES) $(CL
 	@$(PYWIDL) -n -o $@ -t $(PROG) $< $(PARAMS)
 	@$(CLANGFORMAT) -i `cat $@`
 
-$(TEMPLATE_FILES): ./templates
-
-./templates:
-	@ln -s ../../idl2cpp_templates templates
-
 .PHONY: clean
 
 clean:
 	@rm -rf *.pyc \
-	./templates \
 	$(shell find $(OUTPUT_DIR) -name '*.code' -o -name '*_code')
 
