@@ -1,25 +1,25 @@
 #!/usr/bin/python
 
+import os
 import sys
 import imp
 
 from datetime import datetime
-from mako import exceptions
-from mako.template import Template
+from jinja2 import Template, Environment, PackageLoader
 from dokumentor import ParamDoc, NO_Default, IS_Obligated, IS_Optional
 
 # """Transfer a (dokumentor).cpp.py file into a WebIDL file"""
 
 Main_Template = """/* DO NOT EDIT MANUALLY, THIS FILE IS GENERATED
-    at ${ when }
-    by ${ prog }
-    for ${ input }
+    at {{ when }}
+    by {{ prog }}
+    for {{ input }}
 */
 
-% for inst in instances:
-${ inst }
-% endfor
-/* END OF GENERATED FILE ${ when } */"""
+{% for inst in instances %}
+{{ inst }}
+{% endfor %}
+/* END OF GENERATED FILE {{ when }} */"""
 
 class IDLClass:
     """"
@@ -34,45 +34,41 @@ class IDLClass:
     def __init__(self, classname, class_details):
         self.name = classname
         self.details = class_details
-        try:
-            self.templates = {
-            'prop_sig': Template("${ static } ${ readonly } attribute ${ typed } ${ short_name };"),
-            'fun_sig': Template("${ static } ${ typed } ${ short_name }(${ arglist });"),
-            'event_sig': Template("attribute ${ callback_name} ${ callback };"),
-            'constructor': Template("Constructor(${ param_list })"),
-            'callback': Template("""callback interface ${ callback_name } {
-% for meth in methods:
-    ${ meth },
-% endfor
+        self.templates = {
+            'prop_sig': Template("{{ static }} {{ readonly }} attribute {{ typed }} {{ short_name }};"),
+            'fun_sig': Template("{{ static }} {{ typed }} {{ short_name }} ({{ arglist }});"),
+            'event_sig': Template("attribute {{ callback_name }} {{ callback }};"),
+            'constructor': Template("Constructor({{ param_list }})"),
+            'callback': Template("""callback interface {{ callback_name }} {
+{% for meth in methods %}
+    {{ meth }},
+{% endfor %}
 };\n"""),
             'extended': Template("""
 [
-% for constructor in constructors:
-    ${ constructor },
-% endfor
-% if classname:
-    classname = ${ classname }
-% endif
+{% for constructor in constructors %}
+    {{ constructor }},
+{% endfor %}
+{% if classname %}
+    classname = {{ classname }}
+{% endif %}
 ]"""),
             'interface': Template("""
-% for callback in callbacks:
-    ${ callback }
-% endfor
-${header} interface ${ classname } {
-% for prop in properties:
-    ${ prop }
-% endfor
-% for method in methods:
-    ${ method }
-% endfor
-% for event in events:
-    ${ event }
-% endfor
+{% for callback in callbacks %}
+    {{ callback }}
+{% endfor %}
+{{ header }} interface {{ classname }} {
+{% for prop in properties %}
+    {{ prop }}
+{% endfor %}
+{% for method in methods %}
+    {{ method }}
+{% endfor %}
+{% for event in events %}
+    {{ event }}
+{% endfor %}
 };\n"""),
 }
-        except:
-            print(exceptions.text_error_template().render())
-            sys.exit(1)
     def to_idl(self):
         constructors = []
         for name, details in self.details['constructors'].items():
@@ -200,7 +196,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Usage: " + sys.argv[0] + " in_documentor_file out_idl_file")
         sys.exit()
-    if (not os.path.isfile(sys.argv[1])) or (not os.path.isfile(sys.argv[2])):
-        print("One of the file does not exsist")
+    if not os.path.isfile(sys.argv[1]):
+        print("The documentation file does not exist")
         sys.exit()
     main(sys.argv[0], sys.argv[1], sys.argv[2])
