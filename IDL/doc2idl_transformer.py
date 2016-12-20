@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import os
 import sys
 import imp
@@ -19,7 +18,8 @@ Main_Template = """/* DO NOT EDIT MANUALLY, THIS FILE IS GENERATED
 {% for inst in instances %}
 {{ inst }}
 {% endfor %}
-/* END OF GENERATED FILE {{ when }} */"""
+/* END OF GENERATED FILE {{ when }} */
+"""
 
 class IDLClass:
     """"
@@ -41,7 +41,7 @@ class IDLClass:
             'constructor': Template("Constructor({{ param_list }})"),
             'callback': Template("""callback interface {{ callback_name }} {
 {% for meth in methods %}
-    {{ meth }},
+    {{ meth }}
 {% endfor %}
 };\n"""),
             'extended': Template("""
@@ -100,6 +100,8 @@ class IDLClass:
                 if details.returns:
                     for typed in details.returns.typed:
                         typed = self.idl_type(typed)
+                        if details.returns.nullable:
+                            typed += '?'
                         types.append(typed)
                 else:
                     types.append('void')
@@ -137,7 +139,7 @@ class IDLClass:
         else:
             types.append('void')
         typed = " or ".join(types)
-        params = self.param_list(details.params);
+        params = self.param_list(details.params)
         arglist = ", ".join(params)
         short_name = self.short_name(name)
         methods.append(self.templates['fun_sig'].render(static="",
@@ -177,14 +179,18 @@ class IDLClass:
     def idl_type(typed):
         if isinstance(typed, ObjectDoc):
             return 'object'
-        return str(typed)
+        if isinstance(typed, IDLClass):
+            return str(typed)
+        typed = str(typed)
+        if typed[0] == '[' and typed[len(typed) - 1] == ']':
+            typed = typed[1:len(typed) - 1] + "[]"
+        return typed
 
 def main(program, dokumentor_in, idl_out):
     imp.load_source('DOCC', dokumentor_in)
     docs = sys.modules['DOCC'].DOC
     content = ''
     instances = []
-
     for class_name, class_details in docs['classes'].items():
         inst = IDLClass(class_name, class_details)
         instances.append(inst.to_idl())
@@ -193,7 +199,7 @@ def main(program, dokumentor_in, idl_out):
                                              when=datetime.now().isoformat(),
                                              prog=program,
                                              input=dokumentor_in)
-    with open(idl_out, 'a') as file_h:
+    with open(idl_out, 'w') as file_h:
         file_h.write(content)
 
 if __name__ == '__main__':
@@ -201,6 +207,6 @@ if __name__ == '__main__':
         print("Usage: " + sys.argv[0] + " in_documentor_file out_idl_file")
         sys.exit()
     if not os.path.isfile(sys.argv[1]):
-        print("The documentation file does not exist")
+        print("The file '%s' does not exist" % (sys.argv[1]))
         sys.exit()
     main(sys.argv[0], sys.argv[1], sys.argv[2])

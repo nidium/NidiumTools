@@ -16,5 +16,6 @@ $(OUTPUT_DIR)/%.code: $(INPUT_DIR)/%.idl ../../$(PROG).py $(TEMPLATE_FILES) $(CL
 
 clean:
 	@rm -rf *.pyc \
-	$(shell find $(OUTPUT_DIR) -name '*.code' -o -name '*_code')
+	$(shell find $(OUTPUT_DIR) -name '*.idl') \
+	$(shell find $(OUTPUT_DIR) -name '*.code' -o -name '*_code') \
 
