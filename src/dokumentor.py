@@ -697,7 +697,7 @@ class FieldDoc(DetailDoc):
 
 class ReturnDoc(TechnicalDoc):
     """This handles returns of functions/methods/constructors."""
-    def __init__(self, description, typed):
+    def __init__(self, description, typed, nullable=False):
         """
         >>> a = ReturnDoc('The new Person', 'Person')
         >>> len(a.typed)
@@ -707,20 +707,25 @@ class ReturnDoc(TechnicalDoc):
         >>> a = ReturnDoc('The new Person', 'Person|Animal')
         >>> len(a.typed)
         2
+        >>> a.nullable
+        False
         >>> a.typed[0].get()
         'Person'
         >>> a.typed[1].get()
         'Animal'
-        >>> a = ReturnDoc('The new Person', ['Person', 'Animal'])
+        >>> a = ReturnDoc('The new Person', ['Person', 'Animal'], nullable=True)
         >>> len(a.typed)
         2
         >>> a.typed[0].get()
         'Person'
         >>> a.typed[1].get()
         'Animal'
+        >>> a.nullable
+        True
 """
         super(self.__class__, self).__init__("returnVariable", description)
         self.typed = TypedDocs(typed)
+        self.nullable = nullable
 
     def get_key(self):
         return None
@@ -734,6 +739,8 @@ class ReturnDoc(TechnicalDoc):
                 types.append(typed.to_markdown())
             else:
                 types.append(typed.get())
+        if self.nullable and 'null' not in types:
+            types.append('null')
         lines += "'" +  "', '".join(types) + "'\t" + self.description.get()
         return lines
 
@@ -741,6 +748,7 @@ class ReturnDoc(TechnicalDoc):
         """Prepare a normal interface to export data."""
         data = super(self.__class__, self).to_dict(variant)
         data['typed'] = []
+        data['nullable'] = self.nullable
         for typed in self.typed:
             if type(typed).__name__ == 'ObjectDoc':
                 data['typed'].append(typed.to_dict(variant))
@@ -1259,7 +1267,7 @@ def main():
             sys.stderr.write("\nWarning: missing types: '" + "', '".join(missing) + "'\n")
     else:
         usage()
-IGNORE_TYPES = ['null', 'integer', 'string', 'boolean', 'float', 'mixed', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
+IGNORE_TYPES = ['null', 'any', 'integer', 'string', 'boolean', 'float', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
 
 if __name__ == '__main__':
     main()
