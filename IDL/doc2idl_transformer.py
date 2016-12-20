@@ -6,7 +6,7 @@ import imp
 
 from datetime import datetime
 from jinja2 import Template, Environment, PackageLoader
-from dokumentor import ParamDoc, NO_Default, IS_Obligated, IS_Optional
+from dokumentor import ObjectDoc, ParamDoc, NO_Default, IS_Obligated, IS_Optional
 
 # """Transfer a (dokumentor).cpp.py file into a WebIDL file"""
 
@@ -93,24 +93,25 @@ class IDLClass:
                                                                 short_name=short_name)
                                                                 )
         methods = []
-        for name, details in self.details['methods'].items():
-            static = ["", "static"][details.is_static.data is True]
-            types = []
-            if details.returns:
-                for typed in details.returns.typed:
-                    typed = self.idl_type(typed)
-                    types.append(typed)
-            else:
-                types.append('void')
-            typed = " or ".join(types)
-            params = self.param_list(details.params)
-            arglist = ", ".join(params)
-            short_name = self.short_name(name)
-            methods.append(self.templates['fun_sig'].render(static=static,
-                                                            typed=typed,
-                                                            short_name=short_name,
-                                                            arglist=arglist)
-                                                            )
+        for part in [self.details['methods'], self.details['static_methods']]:
+            for name, details in part.items():
+                static = ["", "static"][details.is_static.data is True]
+                types = []
+                if details.returns:
+                    for typed in details.returns.typed:
+                        typed = self.idl_type(typed)
+                        types.append(typed)
+                else:
+                    types.append('void')
+                typed = " or ".join(types)
+                params = self.param_list(details.params)
+                arglist = ", ".join(params)
+                short_name = self.short_name(name)
+                methods.append(self.templates['fun_sig'].render(static=static,
+                                                                typed=typed,
+                                                                short_name=short_name,
+                                                                arglist=arglist)
+                                                                )
         events = []
         callbacks = []
         for name, details in self.details['events'].items():
@@ -174,6 +175,8 @@ class IDLClass:
         return params
     @staticmethod
     def idl_type(typed):
+        if isinstance(typed, ObjectDoc):
+            return 'object'
         return str(typed)
 
 def main(program, dokumentor_in, idl_out):
@@ -181,6 +184,7 @@ def main(program, dokumentor_in, idl_out):
     docs = sys.modules['DOCC'].DOC
     content = ''
     instances = []
+
     for class_name, class_details in docs['classes'].items():
         inst = IDLClass(class_name, class_details)
         instances.append(inst.to_idl())
