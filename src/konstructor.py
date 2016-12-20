@@ -128,6 +128,7 @@ class Tests:
 
             Konstruct._runHook("postTests", success)
 
+        return success
 # }}}
 
 # {{{ ComandLine
@@ -245,6 +246,7 @@ def configuration(config):
 @CommandLine.option("--verbose", default=False)
 def verbose(verbose):
     Variables.set("verbose", verbose)
+    Log.loglevel = Log.LogLevel.ALL
 
 @CommandLine.option("--ignore-build", default="")
 def ignoreBuild(ignoreBuild):
@@ -275,15 +277,10 @@ def forceDownload(forceDownload, forceBuild, force):
         forceBuild += force
 
     for d in forceDownload + forceBuild:
-        if d in AVAILABLE_DEPS["default"]:
-            if d in forceDownload:
-                Log.debug("Forcing download for %s" % d)
-                AVAILABLE_DEPS["default"][d].needDownload = True
-            if d in forceBuild:
-                Log.debug("Forcing download for %s" % d)
-                AVAILABLE_DEPS["default"][d].needBuild = True
-        else:
-            Log.warn("Can't force download or build for %s. Dependency not found" % d)
+        if d in forceDownload:
+            Deps.forceDownload(d)
+        if d in forceBuild:
+            Deps.forceBuild(d)
 # }}}
 
 # {{{ Platform
@@ -323,9 +320,6 @@ class ConfigCache:
             Log.debug("Reading cache: " + self.file)
             self.configCache = ConfigCache._read(self.file)
             ConfigCache.CONFIG_INSTANCE[self.file] = self.configCache
-
-        if not self.configCache:
-            self.configCache = {}
 
     def set(self, key, value):
         self.configCache[key] = value
@@ -367,8 +361,6 @@ class ConfigCache:
 
         if key in self.configCache:
             if newCacheHash in self.configCache[key]:
-                # Hash exist in cache but for another configuration.
-                # Simply return the matching config (since the hash it's the same)
                 ret["new"] = False
                 ret["config"] = self.configCache[key][newCacheHash]
 
@@ -395,7 +387,7 @@ class ConfigCache:
         try:
             return json.loads(open(location, "r").read())
         except:
-            return None
+            return {}
 
     @staticmethod
     def getConfigStr():
@@ -416,6 +408,91 @@ class Utils:
 
         def __exit__(self, type, value, traceback):
             os.chdir(self.cwd)
+
+    @staticmethod
+    def findLinuxDistribution():
+        import re
+        # {{{ parseReleaseFile()
+        def _parseReleaseFile(firstline):
+            _lsb_release_version = re.compile(r'(.+)'
+                                               ' release '
+                                               '([\d.]+)'
+                                               '[^(]*(?:\((.+)\))?')
+            _release_version = re.compile(r'([^0-9]+)'
+                                           '(?: release )?'
+                                           '([\d.]+)'
+                                           '[^(]*(?:\((.+)\))?')
+
+
+            # Default to empty 'version' and 'id' strings.  Both defaults are used
+            # when 'firstline' is empty.  'id' defaults to empty when an id can not
+            # be deduced.
+            version = ''
+            id = ''
+
+            # Parse the first line
+            m = _lsb_release_version.match(firstline)
+            if m is not None:
+                # LSB format: "distro release x.x (codename)"
+                return tuple(m.groups())
+
+            # Pre-LSB format: "distro x.x (codename)"
+            m = _release_version.match(firstline)
+            if m is not None:
+                return tuple(m.groups())
+
+            # Unknown format... take the first two words
+            l = firstline.strip().split()
+            if l:
+                version = l[0]
+                if len(l) > 1:
+                    id = l[1]
+            return '', version, id
+        # }}}
+        try:
+            etc = os.listdir("/etc")
+        except OSError:
+            # Probably not a Unix system
+            return None
+
+        etc.sort()
+
+        _release_filename = re.compile(r'(\w+)[-_](release|version)')
+        _supported_dists = (
+            'suse', 'debian', 'ubuntu', 'fedora', 'redhat', 'centos',
+            'mandrake', 'mandriva', 'rocks', 'slackware', 'yellowdog', 'gentoo',
+            'unitedlinux', 'turbolinux', 'arch', 'mageia')
+
+
+        for file in etc:
+            m = _release_filename.match(file)
+            if m is not None:
+                _distname, dummy = m.groups()
+                _distname = _distname.lower()
+                if _distname in _supported_dists:
+                    distname = _distname
+                    break
+        else:
+            #return _dist_try_harder(distname, version, id)
+            return None
+
+        with open(os.path.join("/etc", file), 'r') as f:
+            firstline = f.readline()
+        _distname, _version, _id = _parseReleaseFile(firstline)
+
+        if _distname and full_distribution_name:
+            distname = _distname
+        if _version:
+            version = _version
+        if _id:
+            id = _id
+        return distname
+
+
+    @staticmethod
+    def findExec(name):
+        from distutils.spawn import find_executable
+        return find_executable(name)
 
     @staticmethod
     def patch(directory, patchFile, pNum=1):
@@ -458,16 +535,25 @@ class Utils:
     def symlink(src, dst):
         if os.path.lexists(dst):
             try:
-                os.unlink(dst)
+                if Platform.system == 'Windows':
+                    os.rmdir(dst)
+                else: 
+                    os.unlink(dst)
             except:
                 Utils.exit("Can not unlink %s/%s. Manually rename or remove this file" % (os.getcwd(), dst))
 
         if Platform.system == "Windows":
             # TODO : Not supported
-            #import win32file
-            #win32file.CreateSymbolicLink(fileSrc, fileTarget, 1)
-            Logs.error("no windows support for symlink")
-            Utils.exit()
+            import win32file
+            try:
+                win32file.CreateSymbolicLink(dst, src, 1)
+            except:
+                Log.error("""Insufficicient rights to create symlinks.
+You can try the following:
+1) Run 'secpol.msc' as administrator,
+   Select 'Local Policies > User Rights Assignment > Create symbolic links' and add your user. Click Apply to save your changes.
+2) Press "Windows  R" and run 'GPUpdate /Force' to activate your changes""")
+                Utils.exit()
         else:
             os.symlink(src, dst)
 
@@ -482,10 +568,10 @@ class Utils:
             else: raise
 
     @staticmethod
-    def exit(reason = None):
+    def exit(reason = None, code=1):
         if reason:
             Log.echo(reason)
-        sys.exit(1)
+        sys.exit(code)
 
     @staticmethod
     def run(cmd, **kwargs):
@@ -508,7 +594,7 @@ class Utils:
         if "returnOutput" in kwargs:
             stdout = stderr = subprocess.PIPE
 
-        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr)
+        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ)
 
         output, error = child.communicate()
         code = child.returncode
@@ -584,13 +670,11 @@ class Utils:
 
         extension = os.path.splitext(path)[1]
         if extension == ".zip":
-            Log.debug("Extracting " + extension + " for " + destination )
             from zipfile import ZipFile
             zip = ZipFile(path)
             zip.extractall(destination)
             zip.close()
         elif extension in [".tar", ".gz", ".bz2", ".bzip2", ".tgz"]:
-            Log.debug("Extracting " + extension + " for " + destination )
             import tarfile
             tar = tarfile.open(path)
             tar.extractall(destination)
@@ -637,27 +721,32 @@ class Utils:
         import tempfile
 
         file_name = url.split('/')[-1]
-        u = urllib2.urlopen(url)
-        f = open(os.path.join(downloadDir, file_name), "wb")
-        meta = u.info()
-        #file_size = int(meta.getheaders("Content-Length")[0])
+        extractDir = os.path.join(downloadDir, file_name)
+        exists = os.path.exists(file_name)
+        if exists:
+            if Utils.promptYesNo("The downloadfile %s is already present, download a fresh version ?" % (file_name)):
+                Log.debug("Removing %s" % (file_name))
+                os.unlink(file_name)
+                exists = False
+        if not exists:
+            u = urllib2.urlopen(url)
+            f = open(extractDir, "wb")
+            meta = u.info()
+            #file_size = int(meta.getheaders("Content-Length")[0])
 
-        file_size_dl = 0
-        block_sz = 8192
-        while True:
-            buff = u.read(block_sz)
-            if not buff:
-                break
+            file_size_dl = 0
+            block_sz = 8192
+            while True:
+                buff = u.read(block_sz)
+                if not buff:
+                    break
 
-            file_size_dl += len(buff)
-            f.write(buff)
-
-        f.close()
-
-        Log.debug("--Downloading %s" % (downloadDir))
+                file_size_dl += len(buff)
+                f.write(buff)
+            f.close()
         if destinationDir:
-            Log.info("Extracting %s" % (f.name))
-            Utils.extract(os.path.join(downloadDir, f.name), destinationDir)
+            Log.info("Extracting %s" % (file_name))
+            Utils.extract(os.path.join(downloadDir, file_name), destinationDir)
 # }}}
 
 # {{{ Logs
@@ -707,9 +796,9 @@ from collections import OrderedDict
 AVAILABLE_DEPS = {"default":{}}
 DEPS = OrderedDict()
 class Dep:
-    def __init__(self, name, fun, options={}):
+    def __init__(self, name, fun):
         self.function = fun
-        self.options = options
+        self.options = {}
         self.name = name
 
         self.needDownload = False
@@ -727,7 +816,7 @@ class Dep:
         self.cache = ConfigCache(os.path.join(ROOT, "third-party", "konstruct.cache"))
 
     def prepare(self):
-        Log.debug("Preparing " + self.name)
+        Log.debug("=> Preparing " + self.name)
         if self.function is not None:
             options = self.function()
             if options is not None:
@@ -744,8 +833,18 @@ class Dep:
             self.extractDir = self.linkDir['src']
             exists = os.path.exists(self.extractDir)
             if cache["new"]:
-                Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
-                self.needDownload = True
+                if exists and not self.cache.get("%s-download" % (self.name)):
+                    # Downloaded dir exists but no cache at all exists for this dep.
+                    # The third-party/konstruct.cache file has been removed/corrupted
+                    # In such case we consider the dependency up to date, so 
+                    # update the cache.
+                    self.cache.setConfig(self.name + "-download", self.downloadConfig);
+                    Log.info("No cache found for \"%s\" but the directory \"%s\" " % (self.name, self.extractDir) + 
+                             "already exists. Not downloading again, use "+ 
+                             "--force-download=%s to download again this dependency" % (self.name))
+                else:
+                    Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
+                    self.needDownload = True
             elif not exists:
                 Log.debug("Need download because output dir '%s' does not exists" % (self.extractDir))
                 self.needDownload = True
@@ -756,10 +855,19 @@ class Dep:
         # Define some variables needed for building/symlinking
         cache = self.cache.getConfig(self.name + "-build", self.options)
         self.buildConfig = cache
+        lastBuildConfig = self.cache.get(self.name + "-lastbuild-config")
 
-        if self.cache.get(self.name + "-lastbuild-config"):
+        if lastBuildConfig != ConfigCache.getConfigStr():
             # The current configuration of konstructor is
-            # different from the last build of this dep
+            # different from the last build of this dep.
+
+            if self.linkDir and not self.needDownload:
+                # Dep has already been downloaded but the current config
+                # is not the same as the previous one.
+                # The directory of  the dep might not point to the correct
+                # directory of the dep for the current config. Update it.
+                Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
+
             self.configChanged = True
 
         self.outputsDir = os.path.join(ROOT, OUTPUT, "third-party", "." + cache["config"])
@@ -821,24 +929,33 @@ class Dep:
                 self.needBuild = False
 
     def download(self):
+        import shutil
         if not self.needDownload:
             return
 
-        if os.path.isdir(self.extractDir):
+        # If the link dir is not a symlink, the user probably overriden the dep.
+        # In such case, warn the user about the dep update, and ask for confirmation
+        # before removing the directory.
+        if self.linkDir and os.path.exists(self.linkDir["dest"]) and not os.path.islink(self.linkDir["dest"]):
             if Utils.promptYesNo("The dependency %s has been updated, download the updated version ? (the directory %s will be removed)" % (self.name, self.extractDir)):
-                import shutil
-                Log.info("Removing %s" % (self.extractDir))
-                shutil.rmtree(self.extractDir)
+                Log.debug("Removing %s" % (self.linkDir["dest"]))
+                shutil.rmtree(self.linkDir["dest"])
+                self.needDownload = True
             else:
                 Log.info("Skipping update of %s" % self.name)
                 return
 
-        Log.info("Downloading %s" % self.name)
+        if os.path.isdir(self.extractDir):
+            Log.debug("Removing previous version of %s in directory %s" % (self.name, self.extractDir))
+            shutil.rmtree(self.extractDir)
+
+        Log.info("Downloading %s" % (self.name))
         Utils.download(self.options["location"], downloadDir=".", destinationDir=self.extractDir)
 
         if self.linkDir:
             # Make the dep directory point to the directory matching the configuration
             Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
+
         self.cache.setConfig(self.name + "-download", self.downloadConfig);
 
     def patch(self):
@@ -871,9 +988,7 @@ class Dep:
                     if hasattr(cmd, '__call__'):
                         cmd()
                     else:
-                        if cmd.startswith("makeSingle"):
-                            cmd = "make -j1"
-                        elif cmd.startswith("make"):
+                        if cmd.startswith("make"):
                             if "-j" not in cmd:
                                 cmd += " -j" + str(Platform.cpuCount)
                         elif cmd.startswith("xcodebuild"):
@@ -967,13 +1082,13 @@ class Dep:
             destFile = os.path.join(destDir, output["file"])
             Utils.mkdir(destDir)
 
-            if not self.needBuild and self.configChanged and not os.path.exists(destFile):
+            if not self.needBuild and self.configChanged and not os.path.exists(destFile) and not self.ignoreBuild:
                 # Config has been changed but the destination file does not exists
                 # The dependency needs to be rebuilt otherwise we would copy the file
                 # from a different configuration
                 Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
                     "has not been found.  The last build of the dependency was different " +
-                    "from the current build config (%s). " % (" + ".join(Konstruct.getConfigs())) +
+                    "from the current build config (%s). " % (" - ".join(Konstruct.getConfigs())) +
                     "The dependency will be rebuilt.")
 
                 with Utils.Chdir(Deps.path):
@@ -1114,7 +1229,7 @@ class Deps:
     @staticmethod
     def register(name, **kwargs):
         def decorator(f):
-            d = Dep(name, f, kwargs)
+            d = Dep(name, f)
 
             configuration = "default"
 
@@ -1140,6 +1255,22 @@ class Deps:
             """
 
         return decorator
+
+    @staticmethod
+    def forceDownload(dep):
+        if dep in AVAILABLE_DEPS["default"]:
+            Log.debug("Forcing download for %s" % dep)
+            AVAILABLE_DEPS["default"][dep].needDownload = True
+        else:
+            Log.warn("Can't force download for %s. Dependency not found" % d)
+
+    @staticmethod
+    def forceBuild(dep):
+        if dep in AVAILABLE_DEPS["default"]:
+            Log.debug("Forcing build for %s" % dep)
+            AVAILABLE_DEPS["default"][dep].needBuild = True
+        else:
+            Log.warn("Can't force build for %s. Dependency not found" % d)
 
     @staticmethod
     def setDir(path):
@@ -1199,12 +1330,13 @@ class Builder:
         def setConfiguration(config):
             Builder.Gyp._config = config;
 
-        def __init__(self, path):
+        def __init__(self, path, defines={}):
             self.path = os.path.abspath(path)
+            self.defines = defines
 
         def run(self, target=None, parallel=True):
             defines = ""
-            for key, value in Builder.Gyp._defines.items():
+            for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
             defines += " "
 
@@ -1225,7 +1357,7 @@ class Builder:
                 if target is not None:
                     runCmd += " -target " + target
 
-            elif Platform.system == "Linux":
+            elif Platform.system in [ "Linux", "Windows"] :
                 #runCmd = "CC=" + CLANG + " CXX=" + CLANGPP +" make " + target + " -j" + str(nbCpu)
                 runCmd = "make"
 
@@ -1238,8 +1370,9 @@ class Builder:
                 if parallel:
                     runCmd += " -j%i" % Platform.cpuCount
             else:
-                # TODO : Windows support
-                Utils.exit("Missing windows support");
+                # TODO : Windows support for visual studio
+                #        Currently, there is basic support via llvm + coreutils + gnuwin32
+                Utils.exit("Missing support for %s platform" % (Platform.system));
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
 
             code, output = Utils.run(runCmd)
@@ -1252,3 +1385,51 @@ class Builder:
             return True
 # }}}
 
+# {{{ PackageManager
+class PackageManger:
+    COMMAND = None
+    UPDATE_COMMAND = None
+    UPDATE_DONE = False
+
+    @staticmethod
+    def install(name, prompt=True):
+        cmd = "%s %s" % (PackageManger.COMMAND, name)
+        if not prompt or (prompt and Utils.promptYesNo("Software \"%s\" is required, would you like to install it ? (%s %s)" % (name, PackageManger.COMMAND, name))):
+            if not PackageManger.UPDATE_DONE and PackageManger.UPDATE_COMMAND:
+                Log.info("Updating package manager (%s)" % (PackageManger.UPDATE_COMMAND))
+                Utils.run(PackageManger.UPDATE_COMMAND)
+                PackageManger.UPDATE_DONE = True
+
+            code, output = Utils.run(cmd)
+
+        return code == 0
+
+    @staticmethod
+    def detect():
+        if Platform.system == "Darwin":
+            if Utils.findExec("brew"):
+                PackageManger.COMMAND = "brew install"
+            elif Utils.promptYesNo("Homebrew (OSX package manager) hasn't been found. Would you like to install it ?"):
+                code, output = Utils.run("/usr/bin/ruby -e \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)\"")
+                if code != 0:
+                    Utils.exit("Failed to install Homebrew. Please install it manually from : http://brew.sh/")
+                else:
+                    PackageManger.COMMAND = "brew install"
+            PackageManger.UPDATE_COMMAND = "brew update"
+        elif Platform.system == "Linux":
+            dist = Utils.findLinuxDistribution()
+            isRoot = (os.geteuid() == 0)
+
+            if dist == "debian" or dist == "ubuntu":
+                PackageManger.UPDATE_COMMAND = "apt-get update"
+                PackageManger.COMMAND = "apt-get install"
+            elif dist == "arch":
+                PackageManger.COMMAND = "pacman -S"
+
+            if not isRoot and PackageManger.COMMAND is not None:
+                PackageManger.COMMAND = "sudo %s" % PackageManger.COMMAND
+                if PackageManger.UPDATE_COMMAND is not None:
+                    PackageManger.UPDATE_COMMAND = "sudo %s" % PackageManger.UPDATE_COMMAND
+
+        return PackageManger.COMMAND
+# }}}

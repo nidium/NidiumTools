@@ -238,7 +238,7 @@ class BasicDoc(object):
     def get_key(self):
         return "base"
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
         return {}
 
@@ -342,9 +342,9 @@ class TechnicalDoc(BasicDoc):
     def get_key(self):
         return None
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(TechnicalDoc, self).to_dict()
+        data = super(TechnicalDoc, self).to_dict(variant)
         data['name'] = self.name.get()
         data['description'] = self.description.get()
         return data
@@ -396,9 +396,9 @@ class DetailDoc(TechnicalDoc):
         lines += "\n"
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(DetailDoc, self).to_dict()
+        data = super(DetailDoc, self).to_dict(variant)
         data['is_public'] = self.is_public.value()
         data['is_static'] = self.is_static.value()
         data['sees'] = []
@@ -410,10 +410,10 @@ class DetailDoc(TechnicalDoc):
         if len(self.sees) > 0:
             for see in self.sees:
                 if self.name.get() !=  see.data.get():
-                    data['sees'].append(see.to_dict())
+                    data['sees'].append(see.to_dict(variant))
         if len(self.examples) > 0:
             for example in self.examples:
-                data['examples'].append(example.to_dict())
+                data['examples'].append(example.to_dict(variant))
         return data
 
 class NamespaceDoc(DetailDoc):
@@ -449,10 +449,10 @@ class NamespaceDoc(DetailDoc):
 
         return super(NamespaceDoc, self).to_markdown()
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
 
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
 
         if self.section:
             data["section"] = self.section.get()
@@ -519,10 +519,10 @@ class ClassDoc(DetailDoc):
 
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
 
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
 
         data['inherrits'] = []
         data['extends'] = []
@@ -594,16 +594,16 @@ class FunctionDoc(DetailDoc):
             lines += "\n__Returns__:" + self.returns.to_markdown() + "\n"
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(FunctionDoc, self).to_dict()
+        data = super(FunctionDoc, self).to_dict(variant)
         data['is_constructor'] = self.is_constructor.value()
         data['is_slow'] = self.is_slow.value()
         data['params'] = []
         for param in self.params:
-            data['params'].append(param.to_dict())
+            data['params'].append(param.to_dict(variant))
         if self.returns:
-            data['returns'] = self.returns.to_dict()
+            data['returns'] = self.returns.to_dict(variant)
         else:
             data['returns'] = None
         return data
@@ -636,9 +636,9 @@ class ConstructorDoc(FunctionDoc):
         """Output prepared for in markdown format."""
         return super(self.__class__, self).to_markdown()
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        return super(self.__class__, self).to_dict()
+        return super(self.__class__, self).to_dict(variant)
 
 class FieldDoc(DetailDoc):
     """
@@ -683,14 +683,14 @@ class FieldDoc(DetailDoc):
         lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_readonly.get() + "\t" + self.description.get()
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
         data['typed'] = []
         data['is_readonly'] = self.is_readonly.value()
         for typed in self.typed:
             if type(typed).__name__ == 'ObjectDoc':
-                data['typed'].append(typed.to_dict())
+                data['typed'].append(typed.to_dict(variant))
             else:
                 data['typed'].append(typed.get())
         return data
@@ -737,13 +737,13 @@ class ReturnDoc(TechnicalDoc):
         lines += "'" +  "', '".join(types) + "'\t" + self.description.get()
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
         data['typed'] = []
         for typed in self.typed:
             if type(typed).__name__ == 'ObjectDoc':
-                data['typed'].append(typed.to_dict())
+                data['typed'].append(typed.to_dict(variant))
             else:
                 data['typed'].append(typed.get())
         return data
@@ -802,13 +802,13 @@ class ParamDoc(TechnicalDoc):
         lines += self.name.get() + "\t'" + "', '".join(types) + "'\t" + self.is_optional.get() + "\t" + self.description.get()
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(ParamDoc, self).to_dict()
+        data = super(ParamDoc, self).to_dict(variant)
         data['typed'] = []
         for typed in self.typed:
             if type(typed).__name__ == 'ObjectDoc':
-                data['typed'].append(typed.to_dict())
+                data['typed'].append(typed.to_dict(variant))
             else:
                 data['typed'].append(typed.get())
         data['default'] = self.default.get()
@@ -844,13 +844,13 @@ class EventDoc(FunctionDoc):
             for param in self.params:
                 lines += param.to_markdown()
         return super(self.__class__, self).to_markdown()
-    def to_dict(self):
+    def to_dict(self, variant=''):
 
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
         data['params'] = []
         for param in self.params:
-            data['params'].append(param.to_dict())
+            data['params'].append(param.to_dict(variant))
         return data
 
 class CallbackDoc(ParamDoc):
@@ -906,43 +906,60 @@ class CallbackDoc(ParamDoc):
         lines += self.name.get() + "\t" + "'callback'" + "\t" + self.is_optional.get() + "\t" + self.description.get() + extra
         return lines
 
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
         data['is_optional'] = self.is_optional.value()
         data['params'] = []
         for i in self.params:
-            data['params'].append(i.to_dict())
+            data['params'].append(i.to_dict(variant))
         return data
 
 class ExampleDoc(BasicDoc):
     """
     This handles examples
     """
-    def __init__(self, example, title="", lang='javascript'):
+    def __init__(self, example, title="", lang='javascript', run_code=True):
         """
         >>> a = ExampleDoc('''var a = {} ''')
         >>> a.data.get()
         'var a = {}'
         >>> a.language.get()
         'javascript'
-        >>> a = ExampleDoc('''mov 0, 1''', "wtf", '''redcode''')
+        >>> a.run_code
+        True
+        >>> a = ExampleDoc('''mov 0, 1''', "wtf", '''redcode''', False)
         >>> a.language.get()
         'redcode'
         >>> a.title.get()
         'wtf.'
+        >>> a.run_code
+        False
+        >>> a = ExampleDoc('''var a = {} ''', run_code=False)
+        >>> a.wrap_code()[:11]
+        'if(false) {'
         """
         super(self.__class__, self).__init__()
         self.data = CodePart(example)
         self.title = DescriptionPart(title)
         self.language = LanguagePart(lang)
+        self.run_code = run_code
+    def wrap_code(self):
+        """wrap the code in a block, so that it will not be executed, but syntax is checked"""
+        lines = self.data.get()
+        if lines == None or self.run_code:
+            return lines
+        return "if(false) {\n\t" + "\n\t\t".join(lines.splitlines()) + "\n}"
     def to_markdown(self):
         """Output prepared for in markdown format."""
         return "```" + self.language.get() + "\n" + self.data.get() + "\n```"
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
-        data['data'] = self.data.get()
+        data = super(self.__class__, self).to_dict(variant)
+        if variant == 'exampletest':
+            data['data'] = self.wrap_code()
+        else:
+            data['data'] = self.data.get()
         data['language'] = self.language.get()
         data["title"] = self.language.get()
         return data
@@ -969,9 +986,9 @@ class SeeDoc(BasicDoc):
     def to_markdown(self):
         """Output prepared for in markdown format."""
         return "__" + self.data.get() + "__"
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
-        data = super(self.__class__, self).to_dict()
+        data = super(self.__class__, self).to_dict(variant)
         data['data'] = self.data.get()
         return data
 
@@ -1059,16 +1076,16 @@ class ObjectDoc(BasicDoc):
         if self.is_array:
             lines = "[" + lines + "]"
         return lines
-    def to_dict(self):
+    def to_dict(self, variant=''):
         """Prepare a normal interface to export data."""
         details = []
         for name, description, typed, default in self.data:
             types = []
             for tpy in typed:
                 if isinstance(tpy, list):
-                    types.append(tpy.to_dict())
+                    types.append(tpy.to_dict(variant))
                 elif type(tpy).__name__ == 'ObjectDoc':
-                    types.append(tpy.to_dict())
+                    types.append(tpy.to_dict(variant))
                 else:
                     types.append(tpy.get())
             details.append({'name': name.get(), 'description': description.get(), 'typed': types, 'default': default.get()})
@@ -1157,7 +1174,7 @@ def report(variant, docs):
                 if isinstance(item_details, dict):
                     data[class_name][type_doc][item] = item_details
                 else:
-                    data[class_name][type_doc][item] = item_details.to_dict()
+                    data[class_name][type_doc][item] = item_details.to_dict(variant)
 
                 #if "products" not in data[class_name][type_doc][item]:
                 #    data[class_name][type_doc][item]["products"] = klass.products.get()
