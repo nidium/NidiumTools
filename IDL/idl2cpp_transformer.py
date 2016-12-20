@@ -89,28 +89,57 @@ TypeMapping = {
 
 # {{{ Custom Jinja filters
 def capitalize(text):
+    """
+    >>> capitalize("aaa ee")
+    'Aaa Ee'
+    """
     return string.capwords(text)
 
 def ctype(text):
-    if not TypeMapping[text] or not TypeMapping[text]['c']:
+    """
+    >>> ctype('pink')
+    'pink'
+    >>> ctype('VOID')
+    'void'
+    """
+    if not TypeMapping.has_key(text) or not TypeMapping[text].has_key('c'):
          return text
     return TypeMapping[text]['c']
 
 def jsvaltype(text):
-    if not TypeMapping[text] or not TypeMapping[text]['jsval']:
+    """
+    >>> jsvaltype("floid")
+    'undefined'
+    >>> jsvaltype("VOID")
+    'JS::RootedObject'
+    """
+    if not TypeMapping.has_key(text) or not TypeMapping[text].has_key('jsval'):
         return 'undefined'
     return TypeMapping[text]['jsval']
 
 def convert(text):
-    if not TypeMapping[text] or not TypeMapping[text]['convert']:
+    """
+    >>> convert("floid")
+    'floid'
+    >>> convert("VOID")
+    'JSObjectOrNull'
+    """
+    if not TypeMapping.has_key(text) or not TypeMapping[text].has_key('convert'):
         return text
     return TypeMapping[text]['convert']
 
 def idl_type(typed):
+    """
+    >>> idl_type("DOUBLE")
+    'UNKNOWN'
+    >>> #idl_type()
+    #'UNSIGNED_SHORT'
+    """
     if isinstance(typed, SimpleType):
         value = typed.type
         for key in dir(SimpleType):
             if getattr(SimpleType, key) == value:
+                #print("-->%s %s" % (typed, key))
                 return key
     #print("FIXME", typed, type(typed))
     #dump_introspect(typed)
