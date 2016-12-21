@@ -1269,7 +1269,7 @@ def main():
             sys.stderr.write("\nWarning: missing types: '" + "', '".join(missing) + "'\n")
     else:
         usage()
-IGNORE_TYPES = ['null', 'any', 'integer', 'string', 'boolean', 'float', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
+IGNORE_TYPES = ['void', 'null', 'any', 'integer', 'string', 'boolean', 'float', 'function', 'Array', 'Object', 'ArrayBuffer', 'Uint16Array', 'global']
 
 if __name__ == '__main__':
     main()
