@@ -69,6 +69,8 @@ class NamePart(DocPart):
             raise TypeError(name + " is too short for a good name.")
         elif name.lower() in ['foo', 'bar', 'foobar']:
             raise TypeError(name + " is not a good name.")
+        elif name.lower() in ['callback']:
+            raise TypeError(name + " is a reseved thing in webidl.")
         self.data = name.strip()
 
 class TypedPart(NamePart):
@@ -868,19 +870,19 @@ class CallbackDoc(ParamDoc):
     """
     def __init__(self, name, description, params=NO_Params, default=NO_Default, is_optional=IS_Obligated):
         """
-        >>> a = CallbackDoc('callback', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default)])
+        >>> a = CallbackDoc('cb', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default)])
         >>> type(a.params)
         <type 'list'>
         >>> type(a.params[0])
         <class '__main__.ParamDoc'>
         >>> a.is_optional.value()
         False
-        >>> a = CallbackDoc('callback', 'The function that will be called', NO_Params)
+        >>> a = CallbackDoc('cb', 'The function that will be called', NO_Params)
         >>> type(a.params)
         <type 'list'>
         >>> len(a.params)
         0
-        >>> a = CallbackDoc('callback', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default, IS_Obligated)])
+        >>> a = CallbackDoc('cb', 'The function that will be called', [ParamDoc('res', 'result', 'string', NO_Default, IS_Obligated)])
         >>> type(a.params)
         <type 'list'>
         >>> len(a.params)
