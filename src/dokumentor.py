@@ -69,8 +69,6 @@ class NamePart(DocPart):
             raise TypeError(name + " is too short for a good name.")
         elif name.lower() in ['foo', 'bar', 'foobar']:
             raise TypeError(name + " is not a good name.")
-        elif name.lower() in ['callback']:
-            raise TypeError(name + " is a reseved thing in webidl.")
         self.data = name.strip()
 
 class TypedPart(NamePart):
