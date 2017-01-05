@@ -254,9 +254,13 @@ def ignoreBuild(ignoreBuild):
     if not ignoreBuild:
         return
 
-    for dep in ignoreBuild.split(","):
-        if dep in AVAILABLE_DEPS["default"]:
+    if ignoreBuild == "all":
+        for dep in AVAILABLE_DEPS["default"]:
             AVAILABLE_DEPS["default"][dep].ignoreBuild = True
+    else:
+        for dep in ignoreBuild.split(","):
+            if dep in AVAILABLE_DEPS["default"]:
+                AVAILABLE_DEPS["default"][dep].ignoreBuild = True
 
 @CommandLine.option("--force-download", default="")
 @CommandLine.option("--force-build", default="")
@@ -320,6 +324,9 @@ class Platform:
 # {{{ ConfigCache
 class ConfigCache:
     CONFIG_INSTANCE = {}
+    BASE_ENVIRON = os.environ.copy()
+    DEBUG = False
+
     def __init__(self, f):
         self.file = f;
 
@@ -344,6 +351,8 @@ class ConfigCache:
         if key not in self.configCache:
             # entry does not exists in cache
             self.configCache[key] = {eHash: eConfig}
+            if ConfigCache.DEBUG:
+                self.configCache[key + "-debug"] = {eHash: entry["data"]}
         else:
             if eHash not in self.configCache[key]:
                 # Cache for the data is new (different config)
@@ -356,6 +365,10 @@ class ConfigCache:
                         del self.configCache[key][h]
 
                 self.configCache[key][eHash] = eConfig
+                if ConfigCache.DEBUG:
+                    if eHash not in self.configCache[key + "-debug"]:
+                        self.configCache[key + "-debug"] = []
+                    self.configCache[key + "-debug"][eHash] = entry["data"]
             else:
                 # Entry already exists
                 # Nothing to save
@@ -364,9 +377,13 @@ class ConfigCache:
         self._updateCacheFile()
 
     def getConfig(self, key, data):
-        newCacheHash = ConfigCache._generateHash(data)
+        hashData = ConfigCache._generateHash(data)
+        newCacheHash = hashData["hash"]
         config = ConfigCache.getConfigStr()
         ret = {"new": True, "hash":  newCacheHash, "config": config}
+
+        if ConfigCache.DEBUG:
+            ret["data"] = hashData["data"]
 
         if key in self.configCache:
             if newCacheHash in self.configCache[key]:
@@ -406,7 +423,12 @@ class ConfigCache:
         elif isinstance(data, dict):
             tmp = copy.deepcopy(data)
             if "env" in tmp and  isinstance(tmp["env"], Utils.Env):
-                tmp["env"] = tmp["env"].toDict()
+                tmp["env"] = tmp["env"].toDict().copy()
+                # Remove OS level environement variables so we don't
+                # polute the hash with stuff we does not control
+                for name, value in ConfigCache.BASE_ENVIRON.items():
+                    if name in tmp["env"] and tmp["env"][name] == value:
+                        del tmp["env"][name]
 
             if "location" in tmp and type(tmp["location"]) != str:
                 tmp["location"] = serializeClass(tmp["location"])
@@ -420,7 +442,7 @@ class ConfigCache:
         else:
             tmp = serializeClass(data)
 
-        return hashlib.md5(json.dumps(tmp, sort_keys=True)).hexdigest()
+        return {"hash": hashlib.md5(json.dumps(tmp, sort_keys=True)).hexdigest(), "data": json.dumps(tmp, sort_keys=True)}
 
     @staticmethod
     def _write(stamps, dst):
@@ -1014,6 +1036,8 @@ class Dep:
                     """
             if self.ignoreBuild:
                 Log.debug("Build discarded because of --ignore-build flag")
+                # Save new config to discard future builds too
+                self.cache.setConfig(self.name + "-build", self.buildConfig)
                 self.needBuild = False
 
     def download(self):
