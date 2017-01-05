@@ -33,6 +33,7 @@ class Konstruct:
     _configuration = ["default"]
     _hooks = {
         "start": [],
+        "preDepsBuild": [],
         "preBuild": [],
         "postBuild": [],
         "preTests": [],
@@ -293,18 +294,26 @@ class Platform:
     wordSize = 64 if sys.maxsize > 2**32 else 32
 
     @staticmethod
+    def getEnviron(name, default=""):
+        return os.environ.get(name)
+
+    @staticmethod
     def setEnviron(*args):
         for env in args:
-            tmp = env.split("=", 1)
-            if tmp[0].endswith("+"):
-                key = tmp[0][:-1]
-                current = os.environ.get(key, "")
-                if current:
-                    os.environ[key] = current + os.pathsep + tmp[1]
-                else:
-                    os.environ[key] = tmp[1]
+            if isinstance(env, Utils.Env):
+                for key, value in env.toDict().iteritems():
+                    os.environ[key] = value
             else:
-                os.environ[tmp[0]] = tmp[1]
+                tmp = env.split("=", 1)
+                if tmp[0].endswith("+"):
+                    key = tmp[0][:-1]
+                    current = os.environ.get(key, "")
+                    if current:
+                        os.environ[key] = current + os.pathsep + tmp[1]
+                    else:
+                        os.environ[key] = tmp[1]
+                else:
+                    os.environ[tmp[0]] = tmp[1]
 
 # }}}
 
@@ -372,9 +381,46 @@ class ConfigCache:
 
     @staticmethod
     def _generateHash(data):
-        import pickle
         import hashlib
-        return hashlib.md5(pickle.dumps(data)).hexdigest()
+        import json
+        import inspect
+        import copy
+        tmp = None
+
+        def serializeClass(cls):
+            if not hasattr(cls , "__dict__"):
+                pprint(data)
+                Utils.exit("Cannot generate hash")
+                return
+
+            tmp = cls.__dict__.copy()
+            for key, item in tmp.iteritems():
+                if hasattr(item, '__call__'):
+                    with Utils.Chdir(ROOT):
+                        fnData = inspect.getsourcelines(item)
+                        tmp[key] = "".join(fnData[0])
+            return tmp
+
+        if type(data) == str:
+            tmp = data
+        elif isinstance(data, dict):
+            tmp = copy.deepcopy(data)
+            if "env" in tmp and  isinstance(tmp["env"], Utils.Env):
+                tmp["env"] = tmp["env"].toDict()
+
+            if "location" in tmp and type(tmp["location"]) != str:
+                tmp["location"] = serializeClass(tmp["location"])
+
+            if "build" in tmp:
+                for i, cmd in enumerate(tmp["build"]):
+                    if hasattr(cmd, '__call__'):
+                        with Utils.Chdir(ROOT):
+                            fnData = inspect.getsourcelines(cmd)
+                            tmp["build"][i] = "".join(fnData[0])
+        else:
+            tmp = serializeClass(data)
+
+        return hashlib.md5(json.dumps(tmp, sort_keys=True)).hexdigest()
 
     @staticmethod
     def _write(stamps, dst):
@@ -397,6 +443,34 @@ class ConfigCache:
 # {{{ Utils
 class Utils:
     _promptAssumeYes = False
+
+    class Env:
+        def __init__(self, env=os.environ):
+            self.env = env.copy()
+
+        def append(self, key, val):
+            if key in self.env:
+                self.env[key] += " " + val
+            else:
+                self.set(key, os.environ.get(key, "") + " " + val)
+
+        def set(self, key, val):
+            self.env[key] = val
+
+        def get(self, key, default=None):
+            return self.env.get(key, default)
+
+        def update(self, otherEnv):
+            if isinstance(otherEnv, Utils.Env):
+                otherEnv = otherEnv.toDict()
+            self.env.update(otherEnv)
+
+        def __add__(self, other):
+            self.update(other)
+            return self
+
+        def toDict(self):
+            return self.env
 
     class Chdir:
         def __init__(self, dir):
@@ -495,6 +569,11 @@ class Utils:
         return find_executable(name)
 
     @staticmethod
+    def rmdir(directory):
+        import shutil
+        shutil.rmtree(directory)
+
+    @staticmethod
     def patch(directory, patchFile, pNum=1):
         if not os.path.exists(directory):
             Utils.exit("Directory %s does not exist. Not patching." % directory)
@@ -577,6 +656,8 @@ You can try the following:
     def run(cmd, **kwargs):
         import subprocess
 
+        verbose = Variables.get("verbose", False) or "verbose" in kwargs and kwargs["verbose"]
+
         Log.info("Executing " + cmd)
 
         dir_name = None
@@ -594,12 +675,19 @@ You can try the following:
         if "returnOutput" in kwargs:
             stdout = stderr = subprocess.PIPE
 
-        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ)
+        env = os.environ
+        if "env" in kwargs:
+            tmp = kwargs["env"]
+            if isinstance(tmp, Utils.Env):
+                tmp = tmp.toDict()
+            env = tmp
+
+        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
         output, error = child.communicate()
         code = child.returncode
 
-        if Variables.get("verbose", False) or "verbose" in kwargs and kwargs["verbose"]:
+        if verbose:
             str = "Command result:\n\tCode: %d " % code
             if output:
                 str += "\n\tOutput: '%s'" % output
@@ -994,7 +1082,7 @@ class Dep:
                         elif cmd.startswith("xcodebuild"):
                             if "-jobs" not in cmd:
                                 cmd += " -jobs " + str(Platform.cpuCount)
-                        Utils.run(cmd)
+                        Utils.run(cmd, env=self.options["env"] if "env" in self.options else os.environ)
 
                 self.cache.set(self.name + "-lastbuild-config", ConfigCache.getConfigStr())
 
@@ -1149,22 +1237,36 @@ class Deps:
                 if self.revision:
                     Utils.run("svn up -r" + self.revision)
 
+    class Command:
+        def __init__(self, cmd):
+            self.cmd = cmd
+
+        def download(self, destination):
+            Utils.mkdir(destination)
+            with Utils.Chdir(destination):
+                Utils.run(self.cmd)
+
     class Gclient():
         _exec = "gclient"
 
         @staticmethod
         def setExec(path):
             Deps.Gclient._exec = os.path.abspath(path)
-            os.environ["PATH"] += os.pathsep + os.path.dirname(path)
+            os.environ["PATH"] += os.pathsep + os.path.dirname(Deps.Gclient._exec)
 
-        def __init__(self, location, revision=None):
+        def __init__(self, location, revision=None, hook=None, gclientFile=".gclient"):
+            self.hook = hook
+            self.gclientFile = gclientFile
             self.location = location
             self.revision = revision
 
         def download(self, destination):
-            Utils.run("%s config --name %s --unmanaged %s" % (Deps.Gclient._exec, destination, self.location))
-            Utils.run("%s sync %s" % (Deps.Gclient._exec, "--revision=" + self.revision if self.revision else ""))
+            Utils.run("%s config --gclientfile %s --name %s --unmanaged %s" % (Deps.Gclient._exec, self.gclientFile, destination, self.location))
 
+            if self.hook:
+                self.hook(self.gclientFile)
+
+            Utils.run("%s sync --gclientfile %s %s" % (Deps.Gclient._exec, self.gclientFile, "--revision=" + self.revision if self.revision else ""))
 
     class GitRepo:
         def __init__(self, location, revision=None, branch=None, tag=None):
@@ -1221,6 +1323,8 @@ class Deps:
             for name, d in DEPS.items():
                 d.prepare()
                 d.download()
+
+            Konstruct._runHook("preDepsBuild")
 
             for name, d in DEPS.items():
                 d.patch()
@@ -1281,6 +1385,10 @@ class Deps:
         return Deps.path
 
     @staticmethod
+    def append(*args):
+        Deps.set(*args)
+
+    @staticmethod
     def set(*args):
         offset = 0
         for dep in args:
@@ -1310,7 +1418,8 @@ class Build:
 class Builder:
     class Gyp:
         _args = ""
-        _config = None
+        _config = "Release"
+        _outputFormat = ""
         _defines = {}
         _exec = None
 
@@ -1321,6 +1430,17 @@ class Builder:
         @staticmethod
         def set(key, value):
             Builder.Gyp._defines[key] = value
+
+        @staticmethod
+        def get(key):
+            if key in Builder.Gyp._defines:
+                return Builder.Gyp._defines[key]
+            else:
+                return None
+
+        @staticmethod
+        def setOutputFormat(outputFormat):
+            Builder.Gyp._outputFormat = "-f " + outputFormat
 
         @staticmethod
         def setExec(path):
@@ -1340,7 +1460,9 @@ class Builder:
                 defines += " -D%s=%s" % (key, value)
             defines += " "
 
-            code, output = Utils.run("%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path))
+            code, output = Utils.run("%s %s --generator-output=%s %s %s %s" % (
+                Builder.Gyp._exec, Builder.Gyp._outputFormat,
+                "build", defines, Builder.Gyp._args, self.path))
             cwd = os.getcwd()
 
             os.chdir(OUTPUT)
@@ -1359,16 +1481,25 @@ class Builder:
 
             elif Platform.system in [ "Linux", "Windows"] :
                 #runCmd = "CC=" + CLANG + " CXX=" + CLANGPP +" make " + target + " -j" + str(nbCpu)
-                runCmd = "make"
+                if "ninja" in Builder.Gyp._outputFormat:
+                    runCmd = "ninja -C out/%s" % (Builder.Gyp._config)
+
+                    if Variables.get("verbose", False):
+                        runCmd += " -v"
+                else:
+                    runCmd = "make"
+
+                    if Variables.get("verbose", False):
+                        runCmd += " V=1"
+
+                    if Builder.Gyp._config is not None:
+                        runCmd += " BUILDTYPE=" + Builder.Gyp._config
+
+                    if parallel:
+                        runCmd += " -j%i" % Platform.cpuCount
 
                 if target is not None:
                     runCmd += " " + target
-                if Variables.get("verbose", False):
-                    runCmd += " V=1"
-                if Builder.Gyp._config is not None:
-                    runCmd += " BUILDTYPE=" + Builder.Gyp._config
-                if parallel:
-                    runCmd += " -j%i" % Platform.cpuCount
             else:
                 # TODO : Windows support for visual studio
                 #        Currently, there is basic support via llvm + coreutils + gnuwin32
