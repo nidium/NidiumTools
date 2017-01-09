@@ -1149,6 +1149,15 @@ class Deps:
                 if self.revision:
                     Utils.run("svn up -r" + self.revision)
 
+    class Command:
+        def __init__(self, cmd):
+            self.cmd = cmd
+
+        def download(self, destination):
+            Utils.mkdir(destination)
+            with Utils.Chdir(destination):
+                Utils.run(self.cmd)
+
     class Gclient():
         _exec = "gclient"
 
