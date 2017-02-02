@@ -1170,6 +1170,11 @@ def report(variant, docs):
             if section:
                 section = section.get()
 
+        if not hasattr(klass, "products"):
+            from pprint import pprint
+            pprint(class_details)
+            raise Exception("No product defined for %s" % class_name)
+
         if klass.products.get() == None:
             # No products defined for this item, lets check if the section has it
             if section in classLookup:
