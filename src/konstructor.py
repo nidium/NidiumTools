@@ -293,6 +293,10 @@ class Platform:
     wordSize = 64 if sys.maxsize > 2**32 else 32
 
     @staticmethod
+    def getEnviron(name, default=""):
+        return os.environ.get(name, default)
+
+    @staticmethod
     def setEnviron(*args):
         for env in args:
             tmp = env.split("=", 1)
