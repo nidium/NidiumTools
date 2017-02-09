@@ -366,7 +366,7 @@ class ConfigCache:
 
                 self.configCache[key][eHash] = eConfig
                 if ConfigCache.DEBUG:
-                    if eHash not in self.configCache[key + "-debug"]:
+                    if key + "-debug" not in self.configCache:
                         self.configCache[key + "-debug"] = {}
                     self.configCache[key + "-debug"][eHash] = entry["data"]
             else:
