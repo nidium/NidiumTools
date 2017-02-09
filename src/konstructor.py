@@ -325,7 +325,7 @@ class Platform:
 class ConfigCache:
     CONFIG_INSTANCE = {}
     BASE_ENVIRON = os.environ.copy()
-    DEBUG = False
+    DEBUG = True
 
     def __init__(self, f):
         self.file = f;
@@ -367,7 +367,7 @@ class ConfigCache:
                 self.configCache[key][eHash] = eConfig
                 if ConfigCache.DEBUG:
                     if eHash not in self.configCache[key + "-debug"]:
-                        self.configCache[key + "-debug"] = []
+                        self.configCache[key + "-debug"] = {}
                     self.configCache[key + "-debug"][eHash] = entry["data"]
             else:
                 # Entry already exists
@@ -426,8 +426,9 @@ class ConfigCache:
                 tmp["env"] = tmp["env"].toDict().copy()
                 # Remove OS level environement variables so we don't
                 # polute the hash with stuff we does not control
+                blacklist = ["PATH", "LD_LIBRARY_PATH"]
                 for name, value in ConfigCache.BASE_ENVIRON.items():
-                    if name in tmp["env"] and tmp["env"][name] == value:
+                    if name in tmp["env"] and (tmp["env"][name] == value or name in blacklist):
                         del tmp["env"][name]
 
             if "location" in tmp and type(tmp["location"]) != str:
@@ -1473,6 +1474,10 @@ class Builder:
         @staticmethod
         def setConfiguration(config):
             Builder.Gyp._config = config;
+
+        @staticmethod
+        def getConfiguration():
+            return Builder.Gyp._config
 
         def __init__(self, path, defines={}):
             self.path = os.path.abspath(path)
