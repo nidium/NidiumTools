@@ -518,6 +518,7 @@ class Utils:
 
             if applied == 0:
                 Log.info("Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
+                return True
             else:
                 Log.info("Applying patch " + patchFile)
 
@@ -528,12 +529,14 @@ class Utils:
                     patch.seek(0)
                     success, output = Utils.run("patch " + pNum + " -N", stdin=patch)
                     if success != 0:
-                        Utils.exit("Failed to patch")
+                        return False
                 else:
-                    Utils.exit("Failed to patch")
+                    return False
 
             patch.close()
             nullout.close()
+
+            return True
 
     @staticmethod
     def symlink(src, dst):
@@ -962,13 +965,24 @@ class Dep:
 
         self.cache.setConfig(self.name + "-download", self.downloadConfig);
 
-    def patch(self):
+    def patch(self, noReset=False):
         if "patchs" not in self.options:
             return
 
         Log.debug("Patching " + self.name)
         for p in self.options["patchs"]:
-            Utils.patch(self.name, p)
+            if not Utils.patch(self.name, p):
+                Log.error("Failed to apply patch")
+                if hasattr(self.options["location"], "reset") and not noReset:
+                    if Utils.promptYesNo("Revert local changes and try to apply patch again ?"):
+                        with Utils.Chdir(self.extractDir):
+                            self.options["location"].reset()
+                        self.patch(noReset=True)
+                        return
+                    else:
+                        Utils.exit("Failed to patch")
+                else:
+                    Utils.exit("Failed to patch")
 
     def _getDir(self):
         newDir = "."
@@ -1185,6 +1199,9 @@ class Deps:
             self.revision = revision
             self.branch = branch
             self.tag = tag
+
+        def reset(self):
+            Utils.run("git stash")
 
         def download(self, destination):
             verbose = ' -q'
