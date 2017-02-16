@@ -547,7 +547,6 @@ class Utils:
                 Utils.exit("Can not unlink %s/%s. Manually rename or remove this file" % (os.getcwd(), dst))
 
         if Platform.system == "Windows":
-            # TODO : Not supported
             import win32file
             try:
                 win32file.CreateSymbolicLink(dst, src, 1)
@@ -1352,16 +1351,17 @@ class Builder:
             for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
             defines += " "
-
-            code, output = Utils.run("%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path))
+            gyp = "%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
+            if Platform.system == "Windows":
+                gyp += " -f msvs"
+            if Platform.wordSize == 32:
+                gyp += " target_arch=i386" #'target_arch=ia32|mipsel'
+            code, output = Utils.run(gyp)
             cwd = os.getcwd()
-
             os.chdir(OUTPUT)
-
             runCmd = ""
-
+            project = os.path.splitext(self.path)[0]
             if Platform.system == "Darwin":
-                project = os.path.splitext(self.path)[0]
                 runCmd = "xcodebuild -project " + project + ".xcodeproj"
                 if parallel:
                     runCmd += " -jobs " + str(Platform.cpuCount)
@@ -1369,11 +1369,9 @@ class Builder:
                     runCmd += " -configuration " + Builder.Gyp._config
                 if target is not None:
                     runCmd += " -target " + target
-
-            elif Platform.system in [ "Linux", "Windows"] :
+            elif Platform.system == "Linux":
                 #runCmd = "CC=" + CLANG + " CXX=" + CLANGPP +" make " + target + " -j" + str(nbCpu)
-                runCmd = "make"
-
+                runCmd = "make "
                 if target is not None:
                     runCmd += " " + target
                 if Variables.get("verbose", False):
@@ -1382,9 +1380,18 @@ class Builder:
                     runCmd += " BUILDTYPE=" + Builder.Gyp._config
                 if parallel:
                     runCmd += " -j%i" % Platform.cpuCount
+            elif Platform.system == "Windows":
+                runCmd = "MSBuild.exe /nologo /nodeReuse:True" #"/preprocess:all_in_one.txt"
+                if target is not None:
+                    runCmd += " /target:" + target
+                if Variables.get("verbose", False):
+                    runCmd += " /detailedsummary /verbosity:1"
+                if Builder.Gyp._config is not None:
+                    runCmd += " BUILDTYPE=" + Builder.Gyp._config
+                if parallel:
+                    runCmd += " /maxcpucount:%i" % Platform.cpuCount
+                runCmd += " %s.vcxproj" % (project) 
             else:
-                # TODO : Windows support for visual studio
-                #        Currently, there is basic support via llvm + coreutils + gnuwin32
                 Utils.exit("Missing support for %s platform" % (Platform.system));
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
 
