@@ -1354,8 +1354,9 @@ class Builder:
             gyp = "%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
             if Platform.system == "Windows":
                 gyp += " -f msvs"
-            if Platform.wordSize == 32:
-                gyp += " target_arch=i386" #'target_arch=ia32|mipsel'
+                if Platform.wordSize == 32:
+                    gyp += " -G Platform=Win32" # it seems to be ignored by gyp
+                    #gyp += " -dgeneral"
             code, output = Utils.run(gyp)
             cwd = os.getcwd()
             os.chdir(OUTPUT)
@@ -1390,6 +1391,8 @@ class Builder:
                     runCmd += " BUILDTYPE=" + Builder.Gyp._config
                 if parallel:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
+                if True: #WTF? Platform.wordSize == 32:
+                    runCmd += " /p:Platform=x64"
                 runCmd += " %s.vcxproj" % (project) 
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system));
