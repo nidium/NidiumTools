@@ -1128,6 +1128,8 @@ class Dep:
         if "outputs" not in self.options:
             Log.debug("No need for outputs of " + self.name)
             return
+        if AVAILABLE_DEPS['default'][self.name].ignoreBuild:
+            return
 
         outputs = self.findOutputs()
         for output in outputs:
