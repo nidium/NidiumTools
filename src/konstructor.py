@@ -297,6 +297,11 @@ class Platform:
         return os.environ.get(name, default)
 
     @staticmethod
+    def unsetEnviron(name):
+        if os.environ.get(name, False):
+            del os.environ[name]
+
+    @staticmethod
     def setEnviron(*args):
         for env in args:
             tmp = env.split("=", 1)
@@ -310,6 +315,13 @@ class Platform:
             else:
                 os.environ[tmp[0]] = tmp[1]
 
+    @staticmethod
+    def setCompiler(c_name=None, cpp_name=None):
+        for key, value in [('CC', c_name), ('CXX', cpp_name)]:
+            if value:
+                Platform.setEnviron("%s=%s" % (key, value)) 
+            else:
+                Platform.unsetEnviron(key)
 # }}}
 
 # {{{ ConfigCache
