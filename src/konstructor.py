@@ -1335,6 +1335,12 @@ class Builder:
             Builder.Gyp._defines[key] = value
 
         @staticmethod
+        def get(key, default_value):
+            if key in Builder.Gyp._defines:
+                return Builder.Gyp._defines[key]
+            return default_value
+
+        @staticmethod
         def setExec(path):
             Builder.Gyp._exec = path;
 
