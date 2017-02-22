@@ -1399,7 +1399,7 @@ class Builder:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
                 if True: #WTF? Platform.wordSize == 32:
                     runCmd += " /p:Platform=x64"
-                runCmd += " %s.vcxproj" % (project) 
+                runCmd += " %s.sln" % (project) 
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system));
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
