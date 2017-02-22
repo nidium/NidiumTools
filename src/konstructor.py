@@ -253,9 +253,13 @@ def ignoreBuild(ignoreBuild):
     if not ignoreBuild:
         return
 
-    for dep in ignoreBuild.split(","):
-        if dep in AVAILABLE_DEPS["default"]:
+    if ignoreBuild == "all":
+        for dep in AVAILABLE_DEPS["default"]:
             AVAILABLE_DEPS["default"][dep].ignoreBuild = True
+    else:
+        for dep in ignoreBuild.split(","):
+            if dep in AVAILABLE_DEPS["default"]:
+                AVAILABLE_DEPS["default"][dep].ignoreBuild = True
 
 @CommandLine.option("--force-download", default="")
 @CommandLine.option("--force-build", default="")
