@@ -332,7 +332,7 @@ class Platform:
 class ConfigCache:
     CONFIG_INSTANCE = {}
     def __init__(self, f):
-        self.file = f;
+        self.file = f
 
         if self.file in ConfigCache.CONFIG_INSTANCE:
             self.configCache = ConfigCache.CONFIG_INSTANCE[self.file]
@@ -343,7 +343,7 @@ class ConfigCache:
 
     def set(self, key, value):
         self.configCache[key] = value
-        self._updateCacheFile();
+        self._updateCacheFile()
 
     def get(self, key):
         return self.configCache.get(key, None)
@@ -524,7 +524,7 @@ class Utils:
 
         import subprocess
 
-        pNum = "-p" + str(pNum);
+        pNum = "-p" + str(pNum)
         patch = open(patchFile)
         nullout = open(os.devnull, 'w')
 
@@ -806,7 +806,7 @@ class Log:
     @staticmethod
     def error(string):
         if Log.LogLevel.FATAL >= Log.loglevel:
-           Log.echo("[ERROR ] " +string);
+           Log.echo("[ERROR ] " +string)
 
     @staticmethod
     def success(string):
@@ -862,7 +862,7 @@ class Dep:
                     # The third-party/konstruct.cache file has been removed/corrupted
                     # In such case we consider the dependency up to date, so 
                     # update the cache.
-                    self.cache.setConfig(self.name + "-download", self.downloadConfig);
+                    self.cache.setConfig(self.name + "-download", self.downloadConfig)
                     Log.info("No cache found for \"%s\" but the directory \"%s\" " % (self.name, self.extractDir) + 
                              "already exists. Not downloading again, use "+ 
                              "--force-download=%s to download again this dependency" % (self.name))
@@ -908,7 +908,7 @@ class Dep:
                 # exists and are more recent than the downloaded/extracted directory
 
                 # Get the time of the directory
-                srcDir = self._getDir();
+                srcDir = self._getDir()
                 try:
                     dirTime = os.path.getmtime(os.path.realpath(srcDir))
                 except:
@@ -980,7 +980,7 @@ class Dep:
             # Make the dep directory point to the directory matching the configuration
             Utils.symlink(self.linkDir["src"], self.linkDir["dest"])
 
-        self.cache.setConfig(self.name + "-download", self.downloadConfig);
+        self.cache.setConfig(self.name + "-download", self.downloadConfig)
 
     def revertLocalChanges(self):
         isDepString = False
@@ -1344,7 +1344,7 @@ class Deps:
 
     @staticmethod
     def setDir(path):
-        Deps.path = os.path.abspath(path);
+        Deps.path = os.path.abspath(path)
 
     @staticmethod
     def getDir():
@@ -1386,7 +1386,7 @@ class Builder:
 
         @staticmethod
         def setArgs(args):
-            Builder.Gyp._args = args;
+            Builder.Gyp._args = args
 
         @staticmethod
         def set(key, value):
@@ -1400,11 +1400,11 @@ class Builder:
 
         @staticmethod
         def setExec(path):
-            Builder.Gyp._exec = path;
+            Builder.Gyp._exec = path
 
         @staticmethod
         def setConfiguration(config):
-            Builder.Gyp._config = config;
+            Builder.Gyp._config = config
 
         def __init__(self, path, defines={}):
             self.path = os.path.abspath(path)
@@ -1462,8 +1462,8 @@ class Builder:
                     runCmd += " /p:Platform=x64"
                 runCmd += " %s.sln" % (project) 
             else:
-                Utils.exit("Missing support for %s platform" % (Platform.system));
-            Log.debug("Running gyp. File=%s Target=%s" % (self.path, target));
+                Utils.exit("Missing support for %s platform" % (Platform.system))
+            Log.debug("Running gyp. File=%s Target=%s" % (self.path, target))
 
             code, output = Utils.run(runCmd)
 
