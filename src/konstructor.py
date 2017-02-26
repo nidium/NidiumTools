@@ -1011,7 +1011,7 @@ class Dep:
             return False
 
     def patch(self, noReset=False):
-        if "patchs" not in self.options:
+        if "patchs" not in self.options or len(self.options['patchs']) == 0:
             return True
 
         Log.debug("Patching " + self.name)
@@ -1039,7 +1039,7 @@ class Dep:
 
         with Utils.Chdir(newDir):
             if self.needBuild and "build" in self.options:
-                Log.info("Bulding " + self.name)
+                Log.info("Building " + self.name)
                 for cmd in self.options["build"]:
                     if hasattr(cmd, '__call__'):
                         cmd()
@@ -1340,7 +1340,7 @@ class Deps:
             Log.debug("Forcing build for %s" % dep)
             AVAILABLE_DEPS["default"][dep].needBuild = True
         else:
-            Log.warn("Can't force build for %s. Dependency not found" % d)
+            Log.warn("Can't force build for %s. Dependency not found" % dep)
 
     @staticmethod
     def setDir(path):
