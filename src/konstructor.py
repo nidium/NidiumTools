@@ -917,7 +917,7 @@ class Dep:
 
                 for output in self.findOutputs():
                     if output["found"] is False:
-                        Log.debug("Need build %s, because output file %s havn't been found" % (self.name, output["src"]))
+                        Log.debug("Need build %s, because output file %s has not been found" % (self.name, output["src"]))
                         self.needBuild = True
                         break
                     # This code have some issues
@@ -1420,7 +1420,6 @@ class Builder:
                 gyp += " -f msvs"
                 if Platform.wordSize == 32:
                     gyp += " -G Platform=Win32" # it seems to be ignored by gyp
-                    #gyp += " -dgeneral"
             code, output = Utils.run(gyp)
             cwd = os.getcwd()
             os.chdir(OUTPUT)
@@ -1449,6 +1448,10 @@ class Builder:
                 runCmd = "MSBuild.exe /nologo /nodeReuse:True" #"/preprocess:all_in_one.txt"
                 if target is not None:
                     runCmd += " /target:" + target
+                if self.get("Debug", False):
+                    runCmd += ' /p:Configuration="Debug"'
+                else:
+                    runCmd += ' /p:Configuration="Release"'
                 if Variables.get("verbose", False):
                     runCmd += " /detailedsummary /verbosity:1"
                 if Builder.Gyp._config is not None:
