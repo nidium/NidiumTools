@@ -323,7 +323,7 @@ class Platform:
     def setCompiler(c_name=None, cpp_name=None):
         for key, value in [('CC', c_name), ('CXX', cpp_name)]:
             if value:
-                Platform.setEnviron("%s=%s" % (key, value)) 
+                Platform.setEnviron("%s=%s" % (key, value))
             else:
                 Platform.unsetEnviron(key)
 # }}}
@@ -560,7 +560,7 @@ class Utils:
             try:
                 if Platform.system == 'Windows':
                     os.rmdir(dst)
-                else: 
+                else:
                     os.unlink(dst)
             except:
                 Utils.exit("Can not unlink %s/%s. Manually rename or remove this file" % (os.getcwd(), dst))
@@ -582,12 +582,14 @@ You can try the following:
     @staticmethod
     def mkdir(path):
         import errno
-        try:
-            os.makedirs(path)
-        except OSError as exc: # Python >2.5
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else: raise
+        if not os.path.isdir(path):
+            try:
+                os.makedirs(path)
+            except OSError as exc: # Python >2.5
+                print(os.path.abspath(path))
+                if exc.errno == errno.EEXIST and os.path.isdir(path):
+                    pass
+                else: raise
 
     @staticmethod
     def exit(reason = None, code=1):
@@ -860,11 +862,11 @@ class Dep:
                 if exists and not self.cache.get("%s-download" % (self.name)):
                     # Downloaded dir exists but no cache at all exists for this dep.
                     # The third-party/konstruct.cache file has been removed/corrupted
-                    # In such case we consider the dependency up to date, so 
+                    # In such case we consider the dependency up to date, so
                     # update the cache.
                     self.cache.setConfig(self.name + "-download", self.downloadConfig)
-                    Log.info("No cache found for \"%s\" but the directory \"%s\" " % (self.name, self.extractDir) + 
-                             "already exists. Not downloading again, use "+ 
+                    Log.info("No cache found for \"%s\" but the directory \"%s\" " % (self.name, self.extractDir) +
+                             "already exists. Not downloading again, use "+
                              "--force-download=%s to download again this dependency" % (self.name))
                 else:
                     Log.debug("Need download because configuration for '%s/%s' is new" % (cache["config"], self.name))
@@ -1460,7 +1462,7 @@ class Builder:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
                 if True: #WTF? Platform.wordSize == 32:
                     runCmd += " /p:Platform=x64"
-                runCmd += " %s.sln" % (project) 
+                runCmd += " %s.sln" % (project)
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system))
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target))
