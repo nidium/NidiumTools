@@ -1235,7 +1235,7 @@ class Deps:
             Utils.run("%s sync %s" % (Deps.Gclient._exec, "--revision=" + self.revision if self.revision else ""))
 
 
-    class GitRepo:
+    class GitRepo(Repo):
         def __init__(self, location, revision=None, branch=None, tag=None):
             self.location = location
             self.revision = revision
