@@ -1414,14 +1414,19 @@ class Builder:
 
         def run(self, target=None, parallel=True):
             defines = ""
+            if Platform.system == "Windows":
+                self.set("platform", ['x64', 'Win32'][Platform.system == 32])
+            elif Platform.system == 'Darwin':
+                self.set("platform", ['x64', 'i386'][Platform.system == 32])
+            else:
+                self.set("platform", ['x64', 'x86'][Platform.system == 32])
             for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
             defines += " "
             gyp = "%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
+
             if Platform.system == "Windows":
                 gyp += " -f msvs"
-                if Platform.wordSize == 32:
-                    gyp += " -G Platform=Win32" # it seems to be ignored by gyp
             code, output = Utils.run(gyp)
             cwd = os.getcwd()
             os.chdir(OUTPUT)
@@ -1436,7 +1441,6 @@ class Builder:
                 if target is not None:
                     runCmd += " -target " + target
             elif Platform.system == "Linux":
-                #runCmd = "CC=" + CLANG + " CXX=" + CLANGPP +" make " + target + " -j" + str(nbCpu)
                 runCmd = "make "
                 if target is not None:
                     runCmd += " " + target
@@ -1447,7 +1451,7 @@ class Builder:
                 if parallel:
                     runCmd += " -j%i" % Platform.cpuCount
             elif Platform.system == "Windows":
-                runCmd = "MSBuild.exe /nologo /nodeReuse:True" #"/preprocess:all_in_one.txt"
+                runCmd = "MSBuild.exe /nologo /nodeReuse:True"
                 if target is not None:
                     runCmd += " /target:" + target
                 if self.get("Debug", False):
@@ -1460,8 +1464,6 @@ class Builder:
                     runCmd += " BUILDTYPE=" + Builder.Gyp._config
                 if parallel:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
-                if True: #WTF? Platform.wordSize == 32:
-                    runCmd += " /p:Platform=x64"
                 runCmd += " %s.sln" % (project)
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system))
