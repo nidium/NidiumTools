@@ -295,6 +295,19 @@ class Platform:
     system = platform.system()
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32
+    class MSVC:
+        @staticmethod
+        def toolset(studio):
+            lookup = {
+                2015: 'v140',
+                2013: 'v120',
+                2012: 'v110',
+                2010: 'v100',
+                2008: 'v90',
+            }
+            if studio not in lookup:
+                studio = 2015
+            return lookup[studio]
 
     @staticmethod
     def getEnviron(name, default=""):
@@ -1420,16 +1433,16 @@ class Builder:
                 self.set("platform", ['x64', 'i386'][Platform.system == 32])
             else:
                 self.set("platform", ['x64', 'x86'][Platform.system == 32])
+
             for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
-            defines += " "
-            gyp = "%s --generator-output=%s %s %s %s" % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
-
             if Platform.system == "Windows":
-                gyp += " -f msvs"
+                defines += " -G msvs_version=%s -f msvs" % (Variables.get('msvs_version', 2015))
+            gyp = "%s --generator-output=%s %s %s %s " % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
             code, output = Utils.run(gyp)
             cwd = os.getcwd()
             os.chdir(OUTPUT)
+
             runCmd = ""
             project = os.path.splitext(self.path)[0]
             if Platform.system == "Darwin":
