@@ -1428,11 +1428,11 @@ class Builder:
         def run(self, target=None, parallel=True):
             defines = ""
             if Platform.system == "Windows":
-                self.set("platform", ['x64', 'Win32'][Platform.system == 32])
+                self.set("platform", ['x64', 'Win32'][Platform.wordSize == 32])
             elif Platform.system == 'Darwin':
-                self.set("platform", ['x64', 'i386'][Platform.system == 32])
+                self.set("platform", ['x64', 'i386'][Platform.wordSize == 32])
             else:
-                self.set("platform", ['x64', 'x86'][Platform.system == 32])
+                self.set("platform", ['x64', 'x86'][Platform.wordSize == 32])
 
             for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
@@ -1477,7 +1477,8 @@ class Builder:
                     runCmd += " BUILDTYPE=" + Builder.Gyp._config
                 if parallel:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
-                runCmd += " %s.sln" % (project)
+                platform = self.get('platform', "'Any CPU'")
+                runCmd += " /p:Platform=%s %s.sln" % (platform, project)
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system))
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target))
