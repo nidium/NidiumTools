@@ -1473,8 +1473,6 @@ class Builder:
                     runCmd += ' /p:Configuration="Release"'
                 if Variables.get("verbose", False):
                     runCmd += " /detailedsummary /verbosity:1"
-                if Builder.Gyp._config is not None:
-                    runCmd += " BUILDTYPE=" + Builder.Gyp._config
                 if parallel:
                     runCmd += " /maxcpucount:%i" % Platform.cpuCount
                 platform = self.get('platform', "'Any CPU'")
