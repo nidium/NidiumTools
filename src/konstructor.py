@@ -295,6 +295,21 @@ class Platform:
     system = platform.system()
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32
+    @staticmethod
+    def CMake():
+        cmake = "cmake ."
+        if Platform.wordSize == 32:
+            platform = 'Win32'
+            win_arch = ""
+        else:
+            platform = 'x64'
+            win_arch = " Win64"
+        version = Variables.get('msvs_version', 2015)
+        toolset = Platform.MSVC.toolset(version)
+        toolchain = "Visual Studio %d %s%s" % (int(toolset[1:]) / 10, version, win_arch)
+        cmake = 'cmake . -G "%s"' % (toolchain)
+        return cmake, platform, toolset
+
     class MSVC:
         @staticmethod
         def toolset(studio):
