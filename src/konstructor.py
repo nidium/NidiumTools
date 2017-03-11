@@ -234,9 +234,9 @@ class CommandLine:
 def assumeYes(assumeYes):
     Utils.promptAssumeYes(assumeYes)
 
-@CommandLine.option("--assume-no", default=True)
-def assumeNo(assumeNo):
-    Utils.promptAssumeYes(assumeNo)
+#@CommandLine.option("--assume-no", default=True)
+#def assumeNo(assumeNo):
+#    Utils.promptAssumeYes(assumeNo)
 
 @CommandLine.option("--configuration", default="")
 def configuration(config):
