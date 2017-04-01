@@ -1214,7 +1214,10 @@ class Dep:
             # Symlink the current config
             if not output["copyOnly"]:
                 Log.debug("Need symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
-                Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
+                if Platform.system == "Windows":
+                    shutil.copy(destFile, os.path.join(self.outputsDir, "..", output["file"]))
+                else:
+                    Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
 
 class Deps:
     path = os.path.abspath("third-party")
