@@ -633,7 +633,10 @@ You can try the following:
     def run(cmd, **kwargs):
         import subprocess
 
-        Log.info("Executing " + cmd)
+        if isinstance(cmd, list):
+            Log.info("Executing %s" % " ".join(cmd))
+        else:
+            Log.info("Executing %s" % cmd)
 
         dir_name = None
         if "cwd" in kwargs:
@@ -1078,12 +1081,26 @@ class Dep:
                     if hasattr(cmd, '__call__'):
                         cmd()
                     else:
-                        if cmd.startswith("make"):
-                            if "-j" not in cmd:
-                                cmd += " -j" + str(Platform.cpuCount)
-                        elif cmd.startswith("xcodebuild"):
-                            if "-jobs" not in cmd:
-                                cmd += " -jobs " + str(Platform.cpuCount)
+                        if isinstance(cmd, list):
+                            cmd_str = " ".join(cmd)
+                            cmd_str = cmd_str
+                        else:
+                            cmd_str = cmd
+                        add = ""
+                        if cmd_str.startswith("make") or cmd_str.startswith("ninja") or cmd_str.startswith("mozmake"):
+                            if "-j" not in cmd_str:
+                                add = " -j" 
+                        elif cmd_str.startswith("xcodebuild"):
+                            if "-jobs" not in cmd_str:
+                                add = " -jobs "
+                        elif cmd_str.lower().startswith("msbuild"):
+                            if "maxcpucount" not in cmd_str.lower():
+                                add = " /maxcpucount:"
+                        if add != "":
+                            if isinstance(cmd, list):
+                                cmd.append(add + str(Platform.cpuCount))
+                            else:
+                                cmd += add + str(Platform.cpuCount)
                         Utils.run(cmd)
 
                 self.cache.set(self.name + "-lastbuild-config", ConfigCache.getConfigStr())
