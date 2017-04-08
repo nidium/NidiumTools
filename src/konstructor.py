@@ -105,6 +105,8 @@ class Tests:
             if isinstance(cmd, tuple):
                 dir_name = cmd[1]
                 cmd = cmd[0]
+            if Platform.system == 'Windows' and cmd[0] == '.':
+                cmd = 'bash ' + cmd
             Log.info("Running tests suite : %s" % (cmd))
             code, output = Utils.run(cmd, verbose=True, failExit=False, cwd=dir_name)
             if code != 0:
