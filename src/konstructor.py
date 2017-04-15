@@ -302,7 +302,7 @@ class Platform:
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32
     @staticmethod
-    def MsBuild(proj, config="Release", target=None, platform="-", toolset=None, cpu=None):
+    def MsBuild(proj, config="Release", target=None, platform="-", toolset=None, cpu=None, options=None):
         cmd = "MSBuild.exe %s /nologo /nodeReuse:True" % (proj)
         if config is not None:
             #sometimes we need the real defaults, and live this empty
@@ -321,6 +321,8 @@ class Platform:
         if cpu is None:
             cpu = Platform.cpuCount
             cmd += " /maxcpucount:%i" % (cpu)
+        if options is not None:
+            cmd += " " + options
         if Variables.get("verbose", False):
             cmd += " /detailedsummary /verbosity:1"
         return cmd
