@@ -302,6 +302,29 @@ class Platform:
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32
     @staticmethod
+    def MsBuild(proj, config="Release", target=None, platform="-", toolset=None, cpu=None):
+        cmd = "MSBuild.exe %s /nologo /nodeReuse:True" % (proj)
+        if config is not None:
+            #sometimes we need the real defaults, and live this empty
+            cmd += " /p:Configuration=%s" % (config)
+        if target is not None:
+            cmd += " /target:%" % (target)
+        if platform is not None:
+            #sometimes we need the real defaults, and live this empty
+            if platform == "-":
+                platform = ["Win32", "x64"][Platform.wordSize == 64]
+            cmd += " /P:Platform=%s" % (platform) 
+        if toolset is None:
+             msvs_version = Variables.get('msvs_version', 2015)
+             toolset = Platform.MSVC.toolset(msvs_version)
+             cmd += " /p:PlatformToolset=%s" % (toolset)
+        if cpu is None:
+            cpu = Platform.cpuCount
+            cmd += " /maxcpucount:%i" % (cpu)
+        if Variables.get("verbose", False):
+            cmd += " /detailedsummary /verbosity:1"
+        return cmd
+    @staticmethod
     def CMake(path = "."):
         cmake = "cmake ."
         if Platform.wordSize == 32:
@@ -1505,19 +1528,10 @@ class Builder:
                 if parallel:
                     runCmd += " -j%i" % Platform.cpuCount
             elif Platform.system == "Windows":
-                runCmd = "MSBuild.exe /nologo /nodeReuse:True"
-                if target is not None:
-                    runCmd += " /target:" + target
+                config = "Release"
                 if self.get("Debug", False):
-                    runCmd += ' /p:Configuration="Debug"'
-                else:
-                    runCmd += ' /p:Configuration="Release"'
-                if Variables.get("verbose", False):
-                    runCmd += " /detailedsummary /verbosity:1"
-                if parallel:
-                    runCmd += " /maxcpucount:%i" % Platform.cpuCount
-                platform = self.get('platform', "'Any CPU'")
-                runCmd += " /p:Platform=%s %s.sln" % (platform, project)
+                    config = "Debug"
+                runCmd = Platform.MsBuild(project + ".sln", config, target)
             else:
                 Utils.exit("Missing support for %s platform" % (Platform.system))
             Log.debug("Running gyp. File=%s Target=%s" % (self.path, target))
