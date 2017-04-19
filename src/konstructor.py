@@ -1074,6 +1074,31 @@ class Dep:
 
         self.cache.setConfig(self.name + "-download", self.downloadConfig);
 
+    def revertLocalChanges(self):
+        isDepString = False
+        isDepObject = False
+
+        if type(self.options["location"] == str):
+            isDepString = True
+        elif hasattr(self.options["location"], "reset"):
+            isDepObject =True
+
+        canRevert = isDepObject or isDepString
+
+        if not canRevert:
+            Utils.exit("Failed to apply patch and dependency cannot be reverted.")
+
+        if Utils.promptYesNo("Revert local changes and try to apply patch again ?"):
+            if isDepObject:
+                with Utils.Chdir(self.extractDir):
+                    self.options["location"].reset()
+            else:
+                self.download()
+
+            return self.patch(noReset=True)
+        else:
+            return False
+
     def patch(self, noReset=False):
         if "patchs" not in self.options:
             return
@@ -1081,17 +1106,8 @@ class Dep:
         Log.debug("Patching " + self.name)
         for p in self.options["patchs"]:
             if not Utils.patch(self.name, p):
-                Log.error("Failed to apply patch")
-                if hasattr(self.options["location"], "reset") and not noReset:
-                    if Utils.promptYesNo("Revert local changes and try to apply patch again ?"):
-                        with Utils.Chdir(self.extractDir):
-                            self.options["location"].reset()
-                        self.patch(noReset=True)
-                        return
-                    else:
-                        Utils.exit("Failed to patch")
-                else:
-                    Utils.exit("Failed to patch")
+                if not noReset and not self.revertLocalChanges():
+                    Log.error("Failed to apply patch")
 
     def _getDir(self):
         newDir = "."
