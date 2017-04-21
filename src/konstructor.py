@@ -299,7 +299,7 @@ class Platform:
 
     @staticmethod
     def getEnviron(name, default=""):
-        return os.environ.get(name)
+        return os.environ.get(name, default)
 
     @staticmethod
     def setEnviron(*args):
@@ -809,7 +809,7 @@ You can try the following:
                 os.rmdir(files[0])
 
     @staticmethod
-    def download(location, downloadDir=None, destinationDir=None):
+    def download(location, downloadDir=None, destinationDir=None, useExistingArchive=False):
         import types
 
         if downloadDir is None:
@@ -825,23 +825,24 @@ You can try the following:
             return location.download(destinationDir)
         else:
             if location.startswith("http"):
-                return Utils._httpDownload(location, downloadDir, destinationDir)
+                return Utils._httpDownload(location, downloadDir, destinationDir, useExistingArchive=useExistingArchive)
             else:
                 Utils.exit("Protocol not supported for downloading " + location)
 
     @staticmethod
-    def _httpDownload(url, downloadDir, destinationDir):
+    def _httpDownload(url, downloadDir, destinationDir, useExistingArchive=False):
         import urllib2
         import tempfile
 
         file_name = url.split('/')[-1]
         extractDir = os.path.join(downloadDir, file_name)
         exists = os.path.exists(file_name)
-        if exists:
+        if exists and not useExistingArchive:
             if Utils.promptYesNo("The downloadfile %s is already present, download a fresh version ?" % (file_name)):
                 Log.debug("Removing %s" % (file_name))
                 os.unlink(file_name)
                 exists = False
+
         if not exists:
             u = urllib2.urlopen(url)
             f = open(extractDir, "wb")
@@ -858,6 +859,7 @@ You can try the following:
                 file_size_dl += len(buff)
                 f.write(buff)
             f.close()
+
         if destinationDir:
             Log.info("Extracting %s" % (file_name))
             Utils.extract(os.path.join(downloadDir, file_name), destinationDir)
@@ -1044,7 +1046,7 @@ class Dep:
                 self.cache.setConfig(self.name + "-build", self.buildConfig)
                 self.needBuild = False
 
-    def download(self):
+    def download(self, useExistingArchive=False):
         import shutil
         if not self.needDownload:
             return
@@ -1066,7 +1068,7 @@ class Dep:
             shutil.rmtree(self.extractDir)
 
         Log.info("Downloading %s" % (self.name))
-        Utils.download(self.options["location"], downloadDir=".", destinationDir=self.extractDir)
+        Utils.download(self.options["location"], downloadDir=".", destinationDir=self.extractDir, useExistingArchive=useExistingArchive)
 
         if self.linkDir:
             # Make the dep directory point to the directory matching the configuration
@@ -1078,7 +1080,7 @@ class Dep:
         isDepString = False
         isDepObject = False
 
-        if type(self.options["location"] == str):
+        if type(self.options["location"]) == str:
             isDepString = True
         elif hasattr(self.options["location"], "reset"):
             isDepObject =True
@@ -1090,24 +1092,32 @@ class Dep:
 
         if Utils.promptYesNo("Revert local changes and try to apply patch again ?"):
             if isDepObject:
+                Log.info("is dep object")
                 with Utils.Chdir(self.extractDir):
                     self.options["location"].reset()
             else:
-                self.download()
-
+                Log.info("calling download again")
+                self.needDownload = True
+                self.download(useExistingArchive=True)
             return self.patch(noReset=True)
         else:
+            Log.info("Not reverting, patch cannot be applied")
             return False
 
     def patch(self, noReset=False):
         if "patchs" not in self.options:
-            return
+            return True
 
         Log.debug("Patching " + self.name)
         for p in self.options["patchs"]:
             if not Utils.patch(self.name, p):
+                Log.error("Failed to apply patch. Trying to revert local changes")
                 if not noReset and not self.revertLocalChanges():
-                    Log.error("Failed to apply patch")
+                    if Utils.promptYesNo("Failed to apply patch. Continue anyway ?"):
+                        return True
+                    else:
+                        Utils.exit("Failed to apply patch")
+        return True
 
     def _getDir(self):
         newDir = "."
