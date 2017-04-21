@@ -423,13 +423,9 @@ class ConfigCache:
         elif isinstance(data, dict):
             tmp = copy.deepcopy(data)
             if "env" in tmp and  isinstance(tmp["env"], Utils.Env):
-                tmp["env"] = tmp["env"].toDict().copy()
-                # Remove OS level environement variables so we don't
-                # polute the hash with stuff we does not control
-                blacklist = ["PATH", "LD_LIBRARY_PATH"]
-                for name, value in ConfigCache.BASE_ENVIRON.items():
-                    if name in tmp["env"] and (tmp["env"][name] == value or name in blacklist):
-                        del tmp["env"][name]
+                # Get variables explicitely set on the env
+                # (this avoid poluting the hash with platform environement varialbes)
+                tmp["env"] = tmp["env"].getOwnEnv()
 
             if "location" in tmp and type(tmp["location"]) != str:
                 tmp["location"] = serializeClass(tmp["location"])
@@ -470,6 +466,7 @@ class Utils:
     class Env:
         def __init__(self, env=os.environ):
             self.env = env.copy()
+            self.inheritedEnv = env.copy()
 
         def append(self, key, val):
             if key in self.env:
@@ -494,6 +491,9 @@ class Utils:
 
         def toDict(self):
             return self.env
+
+        def getOwnEnv(self):
+            return {k:v for k,v in self.env.items() if k not in self.inheritedEnv or v != self.inheritedEnv[k]}
 
     class Chdir:
         def __init__(self, dir):
