@@ -1008,7 +1008,10 @@ class Dep:
             if not Utils.patch(self.name, p):
                 Log.error("Failed to apply patch. Trying to revert local changes")
                 if not noReset and not self.revertLocalChanges():
-                    Utils.exit("Failed to apply patch")
+                    if Utils.promptYesNo("Failed to apply patch. Continue anyway ?"):
+                        return True
+                    else:
+                        Utils.exit("Failed to apply patch")
         return True
 
     def _getDir(self):
