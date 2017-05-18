@@ -33,6 +33,7 @@ class Konstruct:
     _configuration = ["default"]
     _hooks = {
         "start": [],
+        "preDepsBuild": [],
         "preBuild": [],
         "postBuild": [],
         "preTests": [],
@@ -301,6 +302,7 @@ class Platform:
     system = platform.system()
     cpuCount = multiprocessing.cpu_count()
     wordSize = 64 if sys.maxsize > 2**32 else 32
+
     @staticmethod
     def MsBuild(proj, config="Release", target=None, platform="-", toolset=None, cpu=None, options=None):
         cmd = "MSBuild.exe %s /nologo /nodeReuse:True" % (proj)
@@ -326,6 +328,7 @@ class Platform:
         if Variables.get("verbose", False):
             cmd += " /detailedsummary /verbosity:1"
         return cmd
+
     @staticmethod
     def CMake(path = "."):
         cmake = "cmake ."
@@ -367,16 +370,20 @@ class Platform:
     @staticmethod
     def setEnviron(*args):
         for env in args:
-            tmp = env.split("=", 1)
-            if tmp[0].endswith("+"):
-                key = tmp[0][:-1]
-                current = os.environ.get(key, "")
-                if current:
-                    os.environ[key] = current + os.pathsep + tmp[1]
-                else:
-                    os.environ[key] = tmp[1]
+            if isinstance(env, Utils.Env):
+                for key, value in env.toDict().iteritems():
+                    os.environ[key] = value
             else:
-                os.environ[tmp[0]] = tmp[1]
+                tmp = env.split("=", 1)
+                if tmp[0].endswith("+"):
+                    key = tmp[0][:-1]
+                    current = os.environ.get(key, "")
+                    if current:
+                        os.environ[key] = current + os.pathsep + tmp[1]
+                    else:
+                        os.environ[key] = tmp[1]
+                else:
+                    os.environ[tmp[0]] = tmp[1]
 
     @staticmethod
     def setCompiler(c_name=None, cpp_name=None):
@@ -390,6 +397,9 @@ class Platform:
 # {{{ ConfigCache
 class ConfigCache:
     CONFIG_INSTANCE = {}
+    BASE_ENVIRON = os.environ.copy()
+    DEBUG = True
+
     def __init__(self, f):
         self.file = f
 
@@ -414,6 +424,8 @@ class ConfigCache:
         if key not in self.configCache:
             # entry does not exists in cache
             self.configCache[key] = {eHash: eConfig}
+            if ConfigCache.DEBUG:
+                self.configCache[key + "-debug"] = {eHash: entry["data"]}
         else:
             if eHash not in self.configCache[key]:
                 # Cache for the data is new (different config)
@@ -426,6 +438,10 @@ class ConfigCache:
                         del self.configCache[key][h]
 
                 self.configCache[key][eHash] = eConfig
+                if ConfigCache.DEBUG:
+                    if key + "-debug" not in self.configCache:
+                        self.configCache[key + "-debug"] = {}
+                    self.configCache[key + "-debug"][eHash] = entry["data"]
             else:
                 # Entry already exists
                 # Nothing to save
@@ -434,9 +450,13 @@ class ConfigCache:
         self._updateCacheFile()
 
     def getConfig(self, key, data):
-        newCacheHash = ConfigCache._generateHash(data)
+        hashData = ConfigCache._generateHash(data)
+        newCacheHash = hashData["hash"]
         config = ConfigCache.getConfigStr()
         ret = {"new": True, "hash":  newCacheHash, "config": config}
+
+        if ConfigCache.DEBUG:
+            ret["data"] = hashData["data"]
 
         if key in self.configCache:
             if newCacheHash in self.configCache[key]:
@@ -451,9 +471,48 @@ class ConfigCache:
 
     @staticmethod
     def _generateHash(data):
-        import pickle
         import hashlib
-        return hashlib.md5(pickle.dumps(data)).hexdigest()
+        import json
+        import inspect
+        import copy
+        tmp = None
+
+        def serializeClass(cls):
+            if not hasattr(cls , "__dict__"):
+                pprint(data)
+                Utils.exit("Cannot generate hash")
+                return
+
+            tmp = cls.__dict__.copy()
+            for key, item in tmp.iteritems():
+                if hasattr(item, '__call__'):
+                    with Utils.Chdir(ROOT):
+                        fnData = inspect.getsourcelines(item)
+                        tmp[key] = "".join(fnData[0])
+            return tmp
+
+        if type(data) == str:
+            tmp = data
+        elif isinstance(data, dict):
+            tmp = copy.deepcopy(data)
+            if "env" in tmp and  isinstance(tmp["env"], Utils.Env):
+                # Get variables explicitely set on the env
+                # (this avoid poluting the hash with platform environement varialbes)
+                tmp["env"] = tmp["env"].getOwnEnv()
+
+            if "location" in tmp and type(tmp["location"]) != str:
+                tmp["location"] = serializeClass(tmp["location"])
+
+            if "build" in tmp:
+                for i, cmd in enumerate(tmp["build"]):
+                    if hasattr(cmd, '__call__'):
+                        with Utils.Chdir(ROOT):
+                            fnData = inspect.getsourcelines(cmd)
+                            tmp["build"][i] = "".join(fnData[0])
+        else:
+            tmp = serializeClass(data)
+
+        return {"hash": hashlib.md5(json.dumps(tmp, sort_keys=True)).hexdigest(), "data": json.dumps(tmp, sort_keys=True)}
 
     @staticmethod
     def _write(stamps, dst):
@@ -476,6 +535,38 @@ class ConfigCache:
 # {{{ Utils
 class Utils:
     _promptAssumeYes = False
+
+    class Env:
+        def __init__(self, env=os.environ):
+            self.env = env.copy()
+            self.inheritedEnv = env.copy()
+
+        def append(self, key, val):
+            if key in self.env:
+                self.env[key] += " " + val
+            else:
+                self.set(key, os.environ.get(key, "") + " " + val)
+
+        def set(self, key, val):
+            self.env[key] = val
+
+        def get(self, key, default=None):
+            return self.env.get(key, default)
+
+        def update(self, otherEnv):
+            if isinstance(otherEnv, Utils.Env):
+                otherEnv = otherEnv.toDict()
+            self.env.update(otherEnv)
+
+        def __add__(self, other):
+            self.update(other)
+            return self
+
+        def toDict(self):
+            return self.env
+
+        def getOwnEnv(self):
+            return {k:v for k,v in self.env.items() if k not in self.inheritedEnv or v != self.inheritedEnv[k]}
 
     class Chdir:
         def __init__(self, dir):
@@ -574,6 +665,11 @@ class Utils:
         return find_executable(name)
 
     @staticmethod
+    def rmdir(directory):
+        import shutil
+        shutil.rmtree(directory)
+
+    @staticmethod
     def patch(directory, patchFile, pNum=1):
         if not os.path.exists(directory):
             Utils.exit("Directory %s does not exist. Not patching." % directory)
@@ -660,6 +756,8 @@ You can try the following:
     def run(cmd, **kwargs):
         import subprocess
 
+        verbose = Variables.get("verbose", False) or "verbose" in kwargs and kwargs["verbose"]
+
         if isinstance(cmd, list):
             Log.info("Executing %s" % " ".join(cmd))
         else:
@@ -680,12 +778,19 @@ You can try the following:
         if "returnOutput" in kwargs:
             stdout = stderr = subprocess.PIPE
 
-        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ)
+        env = os.environ
+        if "env" in kwargs:
+            tmp = kwargs["env"]
+            if isinstance(tmp, Utils.Env):
+                tmp = tmp.toDict()
+            env = tmp
+
+        child = subprocess.Popen(cmd, cwd=dir_name, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
         output, error = child.communicate()
         code = child.returncode
 
-        if Variables.get("verbose", False) or "verbose" in kwargs and kwargs["verbose"]:
+        if verbose:
             str = "Command result:\n\tCode: %d " % code
             if output:
                 str += "\n\tOutput: '%s'" % output
@@ -1014,6 +1119,8 @@ class Dep:
                     """
             if self.ignoreBuild:
                 Log.debug("Build discarded because of --ignore-build flag")
+                # Save new config to discard future builds too
+                self.cache.setConfig(self.name + "-build", self.buildConfig)
                 self.needBuild = False
 
     def download(self, useExistingArchive=False):
@@ -1083,7 +1190,10 @@ class Dep:
             if not Utils.patch(self.name, p):
                 Log.error("Failed to apply patch. Trying to revert local changes")
                 if not noReset and not self.revertLocalChanges():
-                    Utils.exit("Failed to apply patch")
+                    if Utils.promptYesNo("Failed to apply patch. Continue anyway ?"):
+                        return True
+                    else:
+                        Utils.exit("Failed to apply patch")
         return True
 
     def _getDir(self):
@@ -1113,22 +1223,25 @@ class Dep:
                             cmd_str = cmd_str
                         else:
                             cmd_str = cmd
-                        add = ""
+
+                        cpuDirective = ""
                         if cmd_str.startswith("make") or cmd_str.startswith("ninja") or cmd_str.startswith("mozmake"):
                             if "-j" not in cmd_str:
-                                add = " -j" 
+                                cpuDirective = " -j" 
                         elif cmd_str.startswith("xcodebuild"):
                             if "-jobs" not in cmd_str:
-                                add = " -jobs "
+                                cpuDirective = " -jobs "
                         elif cmd_str.lower().startswith("msbuild"):
                             if "maxcpucount" not in cmd_str.lower():
-                                add = " /maxcpucount:"
-                        if add != "":
+                                cpuDirective = " /maxcpucount:"
+
+                        if cpuDirective != "":
                             if isinstance(cmd, list):
                                 cmd.append(add + str(Platform.cpuCount))
                             else:
                                 cmd += add + str(Platform.cpuCount)
-                        Utils.run(cmd)
+
+                        Utils.run(cmd, env=self.options["env"] if "env" in self.options else os.environ)
 
                 self.cache.set(self.name + "-lastbuild-config", ConfigCache.getConfigStr())
 
@@ -1205,8 +1318,6 @@ class Dep:
 
         if "outputs" not in self.options:
             Log.debug("No need for outputs of " + self.name)
-            return
-        if AVAILABLE_DEPS['default'][self.name].ignoreBuild:
             return
 
         outputs = self.findOutputs()
@@ -1303,16 +1414,21 @@ class Deps:
         @staticmethod
         def setExec(path):
             Deps.Gclient._exec = os.path.abspath(path)
-            os.environ["PATH"] += os.pathsep + os.path.dirname(path)
+            os.environ["PATH"] += os.pathsep + os.path.dirname(Deps.Gclient._exec)
 
-        def __init__(self, location, revision=None):
+        def __init__(self, location, revision=None, hook=None, gclientFile=".gclient"):
+            self.hook = hook
+            self.gclientFile = gclientFile
             self.location = location
             self.revision = revision
 
         def download(self, destination):
-            Utils.run("%s config --name %s --unmanaged %s" % (Deps.Gclient._exec, destination, self.location))
-            Utils.run("%s sync %s" % (Deps.Gclient._exec, "--revision=" + self.revision if self.revision else ""))
+            Utils.run("%s config --gclientfile %s --name %s --unmanaged %s" % (Deps.Gclient._exec, self.gclientFile, destination, self.location))
 
+            if self.hook:
+                self.hook(self.gclientFile)
+
+            Utils.run("%s sync --gclientfile %s %s" % (Deps.Gclient._exec, self.gclientFile, "--revision=" + self.revision if self.revision else ""))
 
     class GitRepo(Repo):
         def __init__(self, location, revision=None, branch=None, tag=None):
@@ -1373,6 +1489,8 @@ class Deps:
                 d.prepare()
                 d.download()
 
+            Konstruct._runHook("preDepsBuild")
+
             for name, d in DEPS.items():
                 d.patch()
                 d.build()
@@ -1432,6 +1550,10 @@ class Deps:
         return Deps.path
 
     @staticmethod
+    def append(*args):
+        Deps.set(*args)
+
+    @staticmethod
     def set(*args):
         offset = 0
         for dep in args:
@@ -1461,7 +1583,8 @@ class Build:
 class Builder:
     class Gyp:
         _args = ""
-        _config = None
+        _config = "Release"
+        _outputFormat = ""
         _defines = {}
         _exec = None
 
@@ -1480,6 +1603,10 @@ class Builder:
             return default_value
 
         @staticmethod
+        def setOutputFormat(outputFormat):
+            Builder.Gyp._outputFormat = "-f " + outputFormat
+
+        @staticmethod
         def setExec(path):
             Builder.Gyp._exec = path
 
@@ -1487,25 +1614,31 @@ class Builder:
         def setConfiguration(config):
             Builder.Gyp._config = config
 
+        @staticmethod
+        def getConfiguration():
+            return Builder.Gyp._config
+
         def __init__(self, path, defines={}):
             self.path = os.path.abspath(path)
             self.defines = defines
 
         def run(self, target=None, parallel=True):
             defines = ""
+
             if Platform.system == "Windows":
-                self.set("platform", ['x64', 'Win32'][Platform.wordSize == 32])
+                self.set("COMPILER_PLATFORM", ['x64', 'Win32'][Platform.wordSize == 32])
             elif Platform.system == 'Darwin':
-                self.set("platform", ['x64', 'i386'][Platform.wordSize == 32])
+                self.set("COMPILER_PLATFORM", ['x64', 'i386'][Platform.wordSize == 32])
             else:
-                self.set("platform", ['x64', 'x86'][Platform.wordSize == 32])
+                self.set("COMPILER_PLATFORM", ['x64', 'x86'][Platform.wordSize == 32])
 
             for key, value in Builder.Gyp._defines.items() + self.defines.items():
                 defines += " -D%s=%s" % (key, value)
-            if Platform.system == "Windows":
-                defines += " -G msvs_version=%s -f msvs" % (Variables.get('msvs_version', 2015))
-            gyp = "%s --generator-output=%s %s %s %s " % (Builder.Gyp._exec, "build", defines, Builder.Gyp._args, self.path)
-            code, output = Utils.run(gyp)
+
+            code, output = Utils.run("%s %s --generator-output=%s %s %s %s" % (
+                Builder.Gyp._exec, Builder.Gyp._outputFormat,
+                "build", defines, Builder.Gyp._args, self.path))
+
             cwd = os.getcwd()
             os.chdir(OUTPUT)
 
@@ -1521,14 +1654,22 @@ class Builder:
                     runCmd += " -target " + target
             elif Platform.system == "Linux":
                 runCmd = "make "
-                if target is not None:
-                    runCmd += " " + target
-                if Variables.get("verbose", False):
-                    runCmd += " V=1"
-                if Builder.Gyp._config is not None:
-                    runCmd += " BUILDTYPE=" + Builder.Gyp._config
-                if parallel:
-                    runCmd += " -j%i" % Platform.cpuCount
+                if "ninja" in Builder.Gyp._outputFormat:
+                    runCmd = "ninja -C out/%s" % (Builder.Gyp._config)
+
+                    if Variables.get("verbose", False):
+                        runCmd += " -v"
+                else:
+                    runCmd = "make"
+
+                    if Variables.get("verbose", False):
+                        runCmd += " V=1"
+
+                    if Builder.Gyp._config is not None:
+                        runCmd += " BUILDTYPE=" + Builder.Gyp._config
+
+                    if parallel:
+                        runCmd += " -j%i" % Platform.cpuCount
             elif Platform.system == "Windows":
                 config = "Release"
                 if self.get("Debug", False):
