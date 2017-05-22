@@ -537,6 +537,7 @@ class Utils:
     _promptAssumeYes = False
 
     class Env:
+        SEPARATOR = os.pathsep
         def __init__(self, env=os.environ):
             self.env = env.copy()
             self.inheritedEnv = env.copy()
@@ -1237,9 +1238,9 @@ class Dep:
 
                         if cpuDirective != "":
                             if isinstance(cmd, list):
-                                cmd.append(add + str(Platform.cpuCount))
+                                cmd.append(cpuDirective + str(Platform.cpuCount))
                             else:
-                                cmd += add + str(Platform.cpuCount)
+                                cmd += cpuDirective + str(Platform.cpuCount)
 
                         Utils.run(cmd, env=self.options["env"] if "env" in self.options else os.environ)
 
@@ -1597,7 +1598,7 @@ class Builder:
             Builder.Gyp._defines[key] = value
 
         @staticmethod
-        def get(key, default_value):
+        def get(key, default_value=None):
             if key in Builder.Gyp._defines:
                 return Builder.Gyp._defines[key]
             return default_value
