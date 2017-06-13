@@ -131,9 +131,14 @@ class DescriptionPart(DocPart):
         >>> DescriptionPart.dotstr("")
         ''
         """
-        if isinstance(text, str):
-            if len(text) > 0 and text[-1] != '.':
-                text += '.'
+        if not text:
+            return ""
+
+        text = text.strip()
+        length = len(text)
+        if length > 1 and text[length-1] != '.':
+            text += '.'
+
         return text
 
 class BoolPart(DocPart):
@@ -688,6 +693,7 @@ class FieldDoc(DetailDoc):
         data = super(self.__class__, self).to_dict(variant)
         data['typed'] = []
         data['is_readonly'] = self.is_readonly.value()
+        data['default'] = self.default.get()
         for typed in self.typed:
             if type(typed).__name__ == 'ObjectDoc':
                 data['typed'].append(typed.to_dict(variant))
