@@ -597,10 +597,7 @@ class Utils:
         shutil.rmtree(directory)
 
     @staticmethod
-    def patch(directory, patchFile, pNum=1):
-        if not os.path.exists(directory):
-            Utils.exit("Directory %s does not exist. Not patching." % directory)
-
+    def patch(directory, patchFile, pNum=0):
         if not os.path.exists(patchFile):
             Utils.exit("Patch file %s does not exist. Not patching." % patchFile)
 
@@ -610,31 +607,30 @@ class Utils:
         patch = open(patchFile)
         nullout = open(os.devnull, 'w')
 
-        with Utils.Chdir(directory):
-            # First check if the patch might have been already aplied
-            applied = subprocess.call(["patch", pNum, "-N", "-R", "--dry-run", "--silent"], stdin=patch, stdout=nullout, stderr=subprocess.STDOUT)
+        # First check if the patch might have been already aplied
+        applied = subprocess.call(["patch", pNum, "-N", "-R", "--dry-run", "--silent"], stdin=patch, stdout=nullout, stderr=subprocess.STDOUT)
 
-            if applied == 0:
-                Log.info("Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
-                return True
-            else:
-                Log.info("Applying patch " + patchFile)
-
-                # Check if the patch will succeed
-                patch.seek(0)
-                patched = subprocess.call(["patch", pNum, "-N", "--dry-run", "--silent"], stdin=patch, stderr=subprocess.STDOUT)
-                if patched == 0:
-                    patch.seek(0)
-                    success, output = Utils.run("patch " + pNum + " -N", stdin=patch)
-                    if success != 0:
-                        return False
-                else:
-                    return False
-
-            patch.close()
-            nullout.close()
-
+        if applied == 0:
+            Log.info("Already applied patch "+ patchFile + " in " + directory + ". Skipping.")
             return True
+        else:
+            Log.info("Applying patch " + patchFile)
+
+            # Check if the patch will succeed
+            patch.seek(0)
+            patched = subprocess.call(["patch", pNum, "-N", "--dry-run", "--silent"], stdin=patch, stderr=subprocess.STDOUT)
+            if patched == 0:
+                patch.seek(0)
+                success, output = Utils.run("patch " + pNum + " -N", stdin=patch)
+                if success != 0:
+                    return False
+            else:
+                return False
+
+        patch.close()
+        nullout.close()
+
+        return True
 
     @staticmethod
     def symlink(src, dst):
