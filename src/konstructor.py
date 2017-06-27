@@ -1602,6 +1602,7 @@ class PackageManger:
     @staticmethod
     def install(name, prompt=True):
         cmd = "%s %s" % (PackageManger.COMMAND, name)
+        code = 0
         if not prompt or (prompt and Utils.promptYesNo("Software \"%s\" is required, would you like to install it ? (%s %s)" % (name, PackageManger.COMMAND, name))):
             if not PackageManger.UPDATE_DONE and PackageManger.UPDATE_COMMAND:
                 Log.info("Updating package manager (%s)" % (PackageManger.UPDATE_COMMAND))
