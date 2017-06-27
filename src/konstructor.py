@@ -1347,7 +1347,7 @@ class Deps:
             # "--branch can also take tags and detaches the HEAD at that commit in the resulting repository."
             # Since git 1.7.9.5
             elif self.tag:
-                specific = '-b ' + self.branch
+                specific = '-b ' + self.tag
 
             if Variables.get("verbose", False) or Log.LogLevel.INFO < Log.loglevel:
                 verbose = ''
