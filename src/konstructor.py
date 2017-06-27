@@ -1225,7 +1225,12 @@ class Dep:
         outputs = self.findOutputs()
         for output in outputs:
             if not output["found"]:
-                Utils.exit("Output %s for %s not found" % (output["src"], self.name))
+                msg = "Output %s for %s not found" % (output["src"], self.name)
+                if self.ignoreBuild:
+                    Log.info(msg + ". Skipping other outputs because --ignore-flag was given")
+                    return
+                else:
+                    Utils.exit(msg)
 
             destDir = os.path.join(Deps.getDir(), "..", OUTPUT, "third-party", "." + self.buildConfig["config"])
             destFile = os.path.join(destDir, output["file"])
