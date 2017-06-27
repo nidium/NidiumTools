@@ -1341,20 +1341,24 @@ class Deps:
 
         def download(self, destination):
             verbose = ' -q'
+            specific = ''
+            if self.branch:
+                specific = '-b ' + self.branch
+            # "--branch can also take tags and detaches the HEAD at that commit in the resulting repository."
+            # Since git 1.7.9.5
+            elif self.tag:
+                specific = '-b ' + self.branch
+
             if Variables.get("verbose", False) or Log.LogLevel.INFO < Log.loglevel:
                 verbose = ''
             if not os.path.isdir(destination):
-                Utils.run("git clone %s %s %s" % (verbose, self.location, destination))
-            else:
-                Utils.run("git fetch --all")
-
-            with Utils.Chdir(destination):
-                if self.tag:
-                    Utils.run("git checkout tags/" + self.tag + verbose)
-                elif self.revision:
-                    Utils.run("git checkout " + self.revision + verbose)
-                elif self.branch:
-                    Utils.run("git checkout --track origin/" + self.branch + verbose)
+                # Can't shallow clone for specific commit
+                if self.revision:
+                    Utils.run("git clone %s %s %s" % (verbose, self.location, destination))
+                    with Utils.Chdir(destination):
+                        Utils.run("git reset --hard " + self.revision + verbose)
+                else:
+                    Utils.run("git clone --depth 1 %s %s %s %s" % (specific, verbose, self.location, destination))
 
     @staticmethod
     def _process():
