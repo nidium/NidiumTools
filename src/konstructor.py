@@ -1335,11 +1335,12 @@ class Deps:
             Utils.run("%s sync --gclientfile %s %s" % (Deps.Gclient._exec, self.gclientFile, "--revision=" + self.revision if self.revision else ""))
 
     class GitRepo:
-        def __init__(self, location, revision=None, branch=None, tag=None):
+        def __init__(self, location, revision=None, branch=None, tag=None, shallow=True):
             self.location = location
             self.revision = revision
             self.branch = branch
             self.tag = tag
+            self.shallow = shallow
 
         def reset(self):
             Utils.run("git stash")
@@ -1363,7 +1364,11 @@ class Deps:
                     with Utils.Chdir(destination):
                         Utils.run("git reset --hard " + self.revision + verbose)
                 else:
-                    Utils.run("git clone --depth 1 %s %s %s %s" % (specific, verbose, self.location, destination))
+                    opt = ""
+                    if self.shallow:
+                        opt = "--depth 1"
+
+                    Utils.run("git clone %s %s %s %s %s" % (opt, specific, verbose, self.location, destination))
 
     @staticmethod
     def _process():
