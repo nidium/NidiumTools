@@ -1232,15 +1232,15 @@ class Dep:
                 else:
                     Utils.exit(msg)
 
-            destDir = os.path.join(Deps.getDir(), "..", OUTPUT, "third-party", "." + self.buildConfig["config"])
-            destFile = os.path.join(destDir, output["file"])
-            Utils.mkdir(destDir)
+            destDirCache = os.path.join(Deps.getDir(), "..", OUTPUT, "third-party", "." + self.buildConfig["config"])
+            destFileCache = os.path.join(destDirCache, output["file"])
+            Utils.mkdir(destDirCache)
 
-            if not self.needBuild and self.configChanged and not os.path.exists(destFile) and not self.ignoreBuild:
+            if not self.needBuild and self.configChanged and not os.path.exists(destFileCache) and not self.ignoreBuild:
                 # Config has been changed but the destination file does not exists
                 # The dependency needs to be rebuilt otherwise we would copy the file
                 # from a different configuration
-                Log.info("Destination file %s for depedency %s " % (destFile, self.name) +
+                Log.info("Destination file %s for depedency %s " % (destFileCache, self.name) +
                     "has not been found.  The last build of the dependency was different " +
                     "from the current build config (%s). " % (" - ".join(Konstruct.getConfigs())) +
                     "The dependency will be rebuilt.")
@@ -1250,16 +1250,24 @@ class Dep:
                     self.configChanged = False
                     self.build()
 
-            if self.needBuild or not os.path.exists(destFile) :
+            updateOutput = False
+            if self.needBuild or not os.path.exists(destFileCache) :
                 # New outputs have been generated
                 # Copy them to the build dir
-                Log.debug("Need output %s, copy to %s" % (output["src"], destFile))
-                shutil.copy(output["src"], destFile)
+                updateOutput = True
+                Log.debug("Copy output to config cache (src=%s, dst=%s)" % (output["src"], destFileCache))
+                shutil.copy(output["src"], destFileCache)
 
-            # Symlink the current config
-            if not output["copyOnly"]:
-                Log.debug("Need symlink src=%s dst=%s" % (destFile, os.path.join(self.outputsDir, "..", output["file"])))
-                Utils.symlink(destFile, os.path.join(self.outputsDir, "..", output["file"]))
+            # Copy the current config output to the output directory
+            destFile = os.path.join(self.outputsDir, "..", output["file"])
+            if not output["copyOnly"] and (self.configChanged or self.needBuild or updateOutput or not os.path.isfile(destFile) or os.path.islink(destFile)):
+                # Gracefuly handle the switch from symlink to copied files
+                # XXX : This can be removed in the futre
+                if os.path.islink(destFile):
+                    os.unlink(destFile)
+
+                Log.debug("Copy output (src=%s dst=%s)" % (destFileCache, destFile))
+                shutil.copy(destFileCache, destFile)
 
 class Deps:
     path = os.path.abspath("third-party")
