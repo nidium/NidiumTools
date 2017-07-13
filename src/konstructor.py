@@ -307,12 +307,12 @@ class Platform:
     def MsBuild(proj, config="Release", target=None, platform="-", toolset=None, cpu=None, options=None):
         cmd = "MSBuild.exe %s /nologo /nodeReuse:True" % (proj)
         if config is not None:
-            #sometimes we need the real defaults, and live this empty
+            # Sometimes we need the real defaults, and leave this empty
             cmd += " /p:Configuration=%s" % (config)
         if target is not None:
             cmd += " /target:%" % (target)
         if platform is not None:
-            #sometimes we need the real defaults, and live this empty
+            # Sometimes we need the real defaults, and leave this empty
             if platform == "-":
                 platform = ["Win32", "x64"][Platform.wordSize == 64]
             cmd += " /P:Platform=%s" % (platform) 
